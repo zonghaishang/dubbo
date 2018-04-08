@@ -16,6 +16,8 @@
  */
 package com.alibaba.dubbo.config.spring.context.annotation.provider;
 
+import com.alibaba.dubbo.config.annotation.Reference;
+import com.alibaba.dubbo.config.spring.api.DemoService;
 import com.alibaba.dubbo.config.spring.api.HelloService;
 import org.springframework.stereotype.Service;
 
@@ -28,6 +30,10 @@ import org.springframework.stereotype.Service;
 @Service
 @com.alibaba.dubbo.config.annotation.Service
 public class DefaultHelloService implements HelloService {
+
+
+    @Reference(version = "2.5.7", url = "dubbo://127.0.0.1:12345")
+    private DemoService demoService;
 
     @Override
     public String sayHello(String name) {
