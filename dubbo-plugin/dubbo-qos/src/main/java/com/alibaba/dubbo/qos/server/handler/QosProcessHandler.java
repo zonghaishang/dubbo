@@ -93,7 +93,7 @@ public class QosProcessHandler extends ByteToMessageDecoder {
         }
     }
 
-    // G for GET, and P for POST_KEY
+    // G for GET, and P for POST
     private static boolean isHttp(int magic) {
         return magic == 'G' || magic == 'P';
     }
