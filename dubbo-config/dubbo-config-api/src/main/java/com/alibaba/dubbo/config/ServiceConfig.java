@@ -96,6 +96,14 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
 
     private volatile String generic;
 
+    private boolean             ssl;
+
+    private String              certificate;
+
+    private String              privateKey;
+
+    private String              keyPassword;
+
     public ServiceConfig() {
     }
 
@@ -843,5 +851,40 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
             buf.append(":").append(version);
         }
         return buf.toString();
+    }
+
+    public boolean isSsl() {
+        return ssl;
+    }
+
+    public void setSsl(boolean ssl) {
+        this.ssl = ssl;
+    }
+
+    public String getCertificate() {
+        return certificate;
+    }
+
+    @Parameter(excluded = true)
+    public void setCertificate(String certificate) {
+        this.certificate = certificate;
+    }
+
+    @Parameter(excluded = true)
+    public String getPrivateKey() {
+        return privateKey;
+    }
+
+    public void setPrivateKey(String privateKey) {
+        this.privateKey = privateKey;
+    }
+
+    @Parameter(excluded = true)
+    public String getKeyPassword() {
+        return keyPassword;
+    }
+
+    public void setKeyPassword(String keyPassword) {
+        this.keyPassword = keyPassword;
     }
 }

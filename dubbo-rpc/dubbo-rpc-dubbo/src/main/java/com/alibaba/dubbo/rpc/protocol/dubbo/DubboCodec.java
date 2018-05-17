@@ -92,6 +92,9 @@ public class DubboCodec extends ExchangeCodec implements Codec2 {
                                     new UnsafeByteArrayInputStream(readMessageData(is)),
                                     (Invocation) getRequestData(id), proto);
                         }
+
+                        attachInvocation(channel, (Invocation) getRequestData(id), id);
+
                         data = result;
                     }
                     res.setResult(data);
@@ -131,6 +134,9 @@ public class DubboCodec extends ExchangeCodec implements Codec2 {
                         inv = new DecodeableRpcInvocation(channel, req,
                                 new UnsafeByteArrayInputStream(readMessageData(is)), proto);
                     }
+
+                    attachInvocation(channel, inv, req.getId());
+
                     data = inv;
                 }
                 req.setData(data);
@@ -146,12 +152,16 @@ public class DubboCodec extends ExchangeCodec implements Codec2 {
         }
     }
 
-    private ObjectInput deserialize(Serialization serialization, URL url, InputStream is)
+    protected void attachInvocation(Channel channel, Invocation requestData, long id) {
+
+    }
+
+    protected ObjectInput deserialize(Serialization serialization, URL url, InputStream is)
             throws IOException {
         return serialization.deserialize(url, is);
     }
 
-    private byte[] readMessageData(InputStream is) throws IOException {
+    protected byte[] readMessageData(InputStream is) throws IOException {
         if (is.available() > 0) {
             byte[] result = new byte[is.available()];
             is.read(result);

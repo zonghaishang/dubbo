@@ -18,9 +18,9 @@ package com.alibaba.dubbo.common.utils;
 
 import com.alibaba.dubbo.common.Constants;
 import com.alibaba.dubbo.common.io.UnsafeStringWriter;
-import com.alibaba.fastjson.JSON;
 import com.alibaba.dubbo.common.logger.Logger;
 import com.alibaba.dubbo.common.logger.LoggerFactory;
+import com.alibaba.fastjson.JSON;
 
 import java.io.PrintWriter;
 import java.util.ArrayList;
@@ -426,5 +426,9 @@ public final class StringUtils {
             }
         }
         return buf.toString();
+    }
+
+    public static String nullToEmpty(String string) {
+        return (string == null) ? "" : string;
     }
 }

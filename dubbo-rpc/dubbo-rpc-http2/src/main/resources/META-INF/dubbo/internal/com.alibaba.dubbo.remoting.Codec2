@@ -1,0 +1,1 @@
+http2=com.alibaba.dubbo.rpc.protocol.http2.Http2CountCodec

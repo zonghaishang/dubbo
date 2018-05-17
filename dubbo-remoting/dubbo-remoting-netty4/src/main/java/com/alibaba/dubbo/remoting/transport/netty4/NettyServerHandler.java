@@ -86,7 +86,7 @@ public class NettyServerHandler extends ChannelDuplexHandler {
     @Override
     public void disconnect(ChannelHandlerContext ctx, ChannelPromise future)
             throws Exception {
-
+        System.out.println("disconnect....");
     }
 
     @Override

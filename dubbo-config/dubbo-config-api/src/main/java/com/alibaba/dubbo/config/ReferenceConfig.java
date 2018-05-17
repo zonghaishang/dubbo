@@ -82,6 +82,15 @@ public class ReferenceConfig<T> extends AbstractReferenceConfig {
     // default config
     private ConsumerConfig consumer;
     private String protocol;
+
+    private boolean             ssl;
+
+    private String              certificate;
+
+    private String              privateKey;
+
+    private String              keyPassword;
+
     // interface proxy reference
     private transient volatile T ref;
     private transient volatile Invoker<?> invoker;
@@ -544,4 +553,38 @@ public class ReferenceConfig<T> extends AbstractReferenceConfig {
         return buf.toString();
     }
 
+    public boolean isSsl() {
+        return ssl;
+    }
+
+    public void setSsl(boolean ssl) {
+        this.ssl = ssl;
+    }
+
+    @Parameter(excluded = true)
+    public String getCertificate() {
+        return certificate;
+    }
+
+    public void setCertificate(String certificate) {
+        this.certificate = certificate;
+    }
+
+    @Parameter(excluded = true)
+    public String getPrivateKey() {
+        return privateKey;
+    }
+
+    public void setPrivateKey(String privateKey) {
+        this.privateKey = privateKey;
+    }
+
+    @Parameter(excluded = true)
+    public String getKeyPassword() {
+        return keyPassword;
+    }
+
+    public void setKeyPassword(String keyPassword) {
+        this.keyPassword = keyPassword;
+    }
 }

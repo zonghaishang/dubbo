@@ -23,6 +23,7 @@ import com.alibaba.dubbo.remoting.Channel;
 import com.alibaba.dubbo.remoting.RemotingException;
 import com.alibaba.dubbo.remoting.Server;
 import com.alibaba.dubbo.remoting.transport.ChannelHandlerAdapter;
+
 import org.junit.Test;
 
 import java.util.concurrent.CountDownLatch;

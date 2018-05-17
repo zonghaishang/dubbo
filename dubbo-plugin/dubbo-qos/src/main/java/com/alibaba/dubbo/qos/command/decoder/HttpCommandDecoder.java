@@ -40,7 +40,7 @@ public class HttpCommandDecoder {
             if (array.length == 2) {
                 String name = array[1];
 
-                // process GET request and POST request separately. Check url for GET, and check body for POST
+                // process GET request and POST_KEY request separately. Check url for GET, and check body for POST_KEY
                 if (request.getMethod() == HttpMethod.GET) {
                     if (queryStringDecoder.parameters().isEmpty()) {
                         commandContext = CommandContextFactory.newInstance(name);

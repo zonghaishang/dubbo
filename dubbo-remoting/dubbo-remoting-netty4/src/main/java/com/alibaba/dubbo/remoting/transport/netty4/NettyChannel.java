@@ -26,6 +26,7 @@ import com.alibaba.dubbo.remoting.transport.AbstractChannel;
 
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
+import io.netty.util.AttributeKey;
 
 import java.net.InetSocketAddress;
 import java.util.Map;
@@ -35,7 +36,7 @@ import java.util.concurrent.ConcurrentMap;
 /**
  * NettyChannel.
  */
-final class NettyChannel extends AbstractChannel {
+public final class NettyChannel extends AbstractChannel {
 
     private static final Logger logger = LoggerFactory.getLogger(NettyChannel.class);
 
@@ -70,7 +71,13 @@ final class NettyChannel extends AbstractChannel {
         return ret;
     }
 
-    static void removeChannelIfDisconnected(Channel ch) {
+    // Easy to support extensions
+    public static NettyChannel getChannel(Channel ch){
+        return channelMap.get(ch);
+    }
+
+
+    public static void removeChannelIfDisconnected(Channel ch) {
         if (ch != null && !ch.isActive()) {
             channelMap.remove(ch);
         }
@@ -167,6 +174,23 @@ final class NettyChannel extends AbstractChannel {
     public void removeAttribute(String key) {
         attributes.remove(key);
     }
+
+    public boolean hasNettyAttribute(AttributeKey<?> key) {
+        return channel.attr(key).get() != null;
+    }
+
+    public <T> T getNettyAttribute(AttributeKey<T> key) {
+        return channel.attr(key).get();
+    }
+
+    public <T> void setNettyAttribute(AttributeKey<T> key, T value) {
+        channel.attr(key).set(value);
+    }
+
+    public <T> void removeNettyAttribute(AttributeKey<T> key) {
+        channel.attr(key).set(null);
+    }
+
 
     @Override
     public int hashCode() {

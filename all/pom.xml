@@ -167,6 +167,13 @@
         </dependency>
         <dependency>
             <groupId>com.alibaba</groupId>
+            <artifactId>dubbo-rpc-http2</artifactId>
+            <version>${project.version}</version>
+            <scope>compile</scope>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>com.alibaba</groupId>
             <artifactId>dubbo-rpc-webservice</artifactId>
             <version>${project.version}</version>
             <scope>compile</scope>
@@ -390,6 +397,7 @@
                                     <include>com.alibaba:dubbo-rpc-rmi</include>
                                     <include>com.alibaba:dubbo-rpc-hessian</include>
                                     <include>com.alibaba:dubbo-rpc-http</include>
+                                    <include>com.alibaba:dubbo-rpc-http2</include>
                                     <include>com.alibaba:dubbo-rpc-webservice</include>
                                     <include>com.alibaba:dubbo-rpc-thrift</include>
                                     <include>com.alibaba:dubbo-rpc-memcached</include>
