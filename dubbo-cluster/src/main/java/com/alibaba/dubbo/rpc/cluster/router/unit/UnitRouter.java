@@ -4,7 +4,6 @@ import com.alibaba.dubbo.common.Constants;
 import com.alibaba.dubbo.common.URL;
 import com.alibaba.dubbo.common.logger.Logger;
 import com.alibaba.dubbo.common.logger.LoggerFactory;
-import com.alibaba.dubbo.common.utils.NetUtils;
 import com.alibaba.dubbo.rpc.Invocation;
 import com.alibaba.dubbo.rpc.Invoker;
 import com.alibaba.dubbo.rpc.RpcException;
@@ -16,7 +15,6 @@ import java.util.List;
 import java.util.Map;
 
 /**
- *
  * Support consumers to call the same unit of service priority
  *
  * @author yiji.github@hotmail.com
@@ -26,14 +24,15 @@ public class UnitRouter extends ConditionRouter implements Router {
     private static final Logger logger = LoggerFactory.getLogger(UnitRouter.class);
 
     /**
-     *  we expect consumer should invoker providers that has same value of `unit` property.
+     * we expect consumer should invoker providers that has same value of `unit` property.
      */
     public static final URL ROUTER_URL =
             new URL("condition"
                     , Constants.ANYHOST_VALUE, 0
-                    , Constants.ANY_VALUE )
-                    . addParameters(
-                         Constants.RULE_KEY, URL.encode("=> unit = $unit & methods = $methods")
+                    , Constants.ANY_VALUE)
+                    .addParameters(
+                            Constants.RULE_KEY, URL.encode("=> unit = $unit & methods = $methods"),
+                            Constants.RUNTIME_KEY, "true"
                     );
 
     public UnitRouter() {
@@ -84,7 +83,7 @@ public class UnitRouter extends ConditionRouter implements Router {
         boolean matched = false;
         for (Map.Entry<String, ConditionRouter.MatchPair> matchPair : condition.entrySet()) {
             String key = matchPair.getKey();
-            String sampleValue ;
+            String sampleValue;
 
             URL consumerUrl = param == null ? url : param;
             // check if we are matching provider conditions
@@ -94,13 +93,13 @@ public class UnitRouter extends ConditionRouter implements Router {
             if (invocation != null && (Constants.METHOD_KEY.equals(key) || Constants.METHODS_KEY.equals(key))) {
                 sampleValue = invocation.getMethodName();
 
-                if(sampleValue == null) return false;
+                if (sampleValue == null) return false;
 
-                if(providerCondition) {
+                if (providerCondition) {
                     String serviceMethod = sample.get(key);
                     matched = strictMatch(serviceMethod, sampleValue);
 
-                    if(matched) continue;
+                    if (matched) continue;
 
                     return false;
                 }
@@ -119,14 +118,14 @@ public class UnitRouter extends ConditionRouter implements Router {
         return matched;
     }
 
-    private boolean strictMatch(String serviceMethod, String invokedMethod){
+    private boolean strictMatch(String serviceMethod, String invokedMethod) {
 
-        if(serviceMethod == null) return false;
+        if (serviceMethod == null) return false;
 
-        if(serviceMethod.indexOf(Constants.COMMA_SEPARATOR) >= 0) {
+        if (serviceMethod.indexOf(Constants.COMMA_SEPARATOR) >= 0) {
             String[] methods = serviceMethod.split(Constants.COMMA_SEPARATOR);
-            for(String method : methods) {
-                if(method.equals(invokedMethod)) return true;
+            for (String method : methods) {
+                if (method.equals(invokedMethod)) return true;
             }
         }
 
