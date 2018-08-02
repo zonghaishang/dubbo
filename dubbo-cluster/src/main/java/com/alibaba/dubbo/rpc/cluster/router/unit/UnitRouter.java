@@ -69,6 +69,12 @@ public class UnitRouter extends ConditionRouter implements Router {
                     + ", consumer unit: " + url.getParameter(Constants.UNIT_KEY, Constants.DEFAULT_UNIT)
                     + ", cause: " + t.getMessage(), t);
         }
+
+        /**
+         * Return all available providers,If you want to
+         * return to the provider without a unit,
+         * you should filter it here.
+         */
         return invokers;
     }
 
