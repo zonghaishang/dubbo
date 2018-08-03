@@ -120,4 +120,5 @@ public @interface Service {
 
     String[] registry() default {};
 
+    String unit() default "";
 }
