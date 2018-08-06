@@ -38,6 +38,6 @@
     <!-- declare the service interface to be exported -->
     <dubbo:service interface="com.alibaba.dubbo.demo.DemoService" ref="demoService" unit="hangzhou"/>
 
-    <dubbo:service interface="com.alibaba.dubbo.demo.DemoService" ref="demoService2" unit="hangzhou2"/>
+    <dubbo:service interface="com.alibaba.dubbo.demo.DemoService" ref="demoService2"/>
 
 </beans>
