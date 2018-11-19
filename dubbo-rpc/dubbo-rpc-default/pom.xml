@@ -41,6 +41,10 @@ limitations under the License.
             <version>${project.parent.version}</version>
         </dependency>
         <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-all</artifactId>
+        </dependency>
+        <dependency>
             <groupId>com.alibaba</groupId>
             <artifactId>dubbo-container-api</artifactId>
             <version>${project.parent.version}</version>
