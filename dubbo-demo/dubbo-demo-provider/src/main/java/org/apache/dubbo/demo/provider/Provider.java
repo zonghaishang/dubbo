@@ -16,6 +16,8 @@
  */
 package org.apache.dubbo.demo.provider;
 
+import org.apache.dubbo.container.Main;
+
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
 public class Provider {
@@ -26,8 +28,13 @@ public class Provider {
      * before running your application.
      */
     public static void main(String[] args) throws Exception {
-        ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext(new String[]{"META-INF/spring/dubbo-demo-provider.xml"});
-        context.start();
+        //ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext(new String[]{"META-INF/spring/dubbo-demo-provider.xml"});
+        //context.start();
+
+        System.setProperty("dubbo.spring.config", "META-INF/spring/dubbo-demo-provider.xml");
+
+        Main.main(args);
+
         System.in.read(); // press any key to exit
     }
 }

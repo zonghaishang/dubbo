@@ -30,6 +30,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationEvent;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.event.ContextClosedEvent;
+import org.springframework.context.support.AbstractApplicationContext;
 
 import java.util.Set;
 
@@ -43,6 +44,9 @@ public class SpringExtensionFactory implements ExtensionFactory {
     private static final ApplicationListener shutdownHookListener = new ShutdownHookListener();
 
     public static void addApplicationContext(ApplicationContext context) {
+        if(context instanceof AbstractApplicationContext){
+            ((AbstractApplicationContext)context).registerShutdownHook();
+        }
         contexts.add(context);
         DubboShutdownHook.getDubboShutdownHook().unregister();
         BeanFactoryUtils.addApplicationListener(context, shutdownHookListener);
