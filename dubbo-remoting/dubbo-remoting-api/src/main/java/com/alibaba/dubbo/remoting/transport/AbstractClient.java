@@ -193,7 +193,8 @@ public abstract class AbstractClient extends AbstractEndpoint implements Client 
     }
 
     public InetSocketAddress getConnectAddress() {
-        return new InetSocketAddress(NetUtils.filterLocalHost(getUrl().getHost()), getUrl().getPort());
+        return new InetSocketAddress(getUrl().getHost(), getUrl().getPort());
+        //return new InetSocketAddress(NetUtils.filterLocalHost(getUrl().getHost()), getUrl().getPort());
     }
 
     @Override
