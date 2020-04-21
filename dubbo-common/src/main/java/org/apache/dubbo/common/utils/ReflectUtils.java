@@ -424,6 +424,56 @@ public final class ReflectUtils {
         return sb.toString();
     }
 
+    public static int getArgumentCount(String desc) {
+        if (desc == null || desc.length() == 0) {
+            return 0;
+        }
+
+        int args = 0;
+        boolean next = false;
+        char ch;
+        for (int i = 0, len = desc.length(); i < len; i++) {
+            ch = desc.charAt(i);
+            // is array ?
+            if (ch == '[') {
+                continue;
+            }
+
+            // is object ?
+            if (next && ch != ';') {
+                continue;
+            }
+
+            switch (ch) {
+                case 'V':
+                case 'Z': // boolean
+                case 'B': // byte
+                case 'C': // char
+                case 'D': // double
+                case 'F': // float
+                case 'I': // int
+                case 'J': // long
+                case 'S': // short
+                {
+                    args++;
+                    break;
+                }
+                default: {
+                    // we found object
+                    if (ch == 'L') {
+                        args++;
+                        next = true;
+                        // end of object ?
+                    } else if (ch == ';') {
+                        next = false;
+                    }
+                }
+            }
+        }
+
+        return args;
+    }
+
     /**
      * get method desc.
      * int do(int arg1) => "do(I)I"

@@ -25,6 +25,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -128,6 +129,25 @@ public class ReflectUtilsTest {
         assertEquals("int", ReflectUtils.desc2name(ReflectUtils.getDesc(int.class)));
         assertEquals("void", ReflectUtils.desc2name(ReflectUtils.getDesc(void.class)));
         assertEquals("java.lang.Object[][]", ReflectUtils.desc2name(ReflectUtils.getDesc(Object[][].class)));
+    }
+
+    @Test
+    public void testGetParameterCount(){
+
+        StringBuffer buf = new StringBuffer();
+
+        Class[] arguments = new Class[] {
+                boolean.class, byte.class, char.class, short.class, int.class, float.class, double.class, long.class,
+                boolean[].class, byte[].class, char[].class, short[].class, int[].class, float[].class, double[].class, long[].class,
+                List.class, Map.class, Collections.class, Set.class,
+                ReflectUtilsTest[][].class
+        };
+
+        for (int i = 0; i < arguments.length; i++){
+            buf.append(ReflectUtils.getDesc(arguments[i]));
+        }
+
+        assertEquals(arguments.length, ReflectUtils.getArgumentCount(buf.toString()));
     }
 
     @Test
