@@ -28,7 +28,10 @@
 
     <dubbo:metadata-report address="zookeeper://127.0.1:2181"/>
 
-    <dubbo:registry address="zookeeper://127.0.0.1:2181"/>
+    <dubbo:registry id="registry1" protocol="multiple" address="multiple:0.0.0.0:0?registry-type=service">
+        <dubbo:parameter key="child.zk1" value="zookeeper://127.0.0.1:2181"/>
+        <dubbo:parameter key="child.zk2" value="zookeeper://127.0.0.1:3181"/>
+    </dubbo:registry>
 
     <dubbo:reference id="demoService" check="true"
                      interface="org.apache.dubbo.demo.DemoService"/>
