@@ -17,12 +17,16 @@
 package org.apache.dubbo.registry.client.metadata.store;
 
 import org.apache.dubbo.common.URL;
+import org.apache.dubbo.common.config.ConfigurationUtils;
 import org.apache.dubbo.common.logger.Logger;
 import org.apache.dubbo.common.logger.LoggerFactory;
+import org.apache.dubbo.common.utils.CollectionUtils;
 import org.apache.dubbo.common.utils.StringUtils;
+import org.apache.dubbo.metadata.InstanceMetadataChangedListener;
 import org.apache.dubbo.metadata.MetadataInfo;
 import org.apache.dubbo.metadata.MetadataInfo.ServiceInfo;
 import org.apache.dubbo.metadata.MetadataService;
+import org.apache.dubbo.metadata.ServiceNameMapping;
 import org.apache.dubbo.metadata.WritableMetadataService;
 import org.apache.dubbo.metadata.definition.ServiceDefinitionBuilder;
 import org.apache.dubbo.metadata.definition.model.ServiceDefinition;
@@ -30,10 +34,13 @@ import org.apache.dubbo.registry.client.RegistryClusterIdentifier;
 import org.apache.dubbo.rpc.model.ApplicationModel;
 import org.apache.dubbo.rpc.support.ProtocolUtils;
 
-import com.alibaba.fastjson.JSON;
+import com.google.gson.Gson;
 
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.concurrent.Callable;
@@ -42,17 +49,21 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static java.util.Collections.emptySortedSet;
 import static java.util.Collections.unmodifiableSortedSet;
 import static org.apache.dubbo.common.URL.buildKey;
 import static org.apache.dubbo.common.constants.CommonConstants.CONSUMER_SIDE;
-import static org.apache.dubbo.common.constants.CommonConstants.INTERFACE_KEY;
+import static org.apache.dubbo.common.constants.CommonConstants.DEFAULT_KEY;
 import static org.apache.dubbo.common.constants.CommonConstants.PROTOCOL_KEY;
 import static org.apache.dubbo.common.constants.CommonConstants.SIDE_KEY;
 import static org.apache.dubbo.common.utils.CollectionUtils.isEmpty;
+import static org.apache.dubbo.metadata.MetadataConstants.DEFAULT_METADATA_PUBLISH_DELAY;
+import static org.apache.dubbo.metadata.MetadataConstants.METADATA_PUBLISH_DELAY_KEY;
 import static org.apache.dubbo.rpc.Constants.GENERIC_KEY;
 
 /**
@@ -76,8 +87,19 @@ public class InMemoryWritableMetadataService implements WritableMetadataService 
      * and value is the {@link SortedSet sorted set} of the {@link URL URLs}
      */
     ConcurrentNavigableMap<String, SortedSet<URL>> exportedServiceURLs = new ConcurrentSkipListMap<>();
+    URL metadataServiceURL;
     ConcurrentMap<String, MetadataInfo> metadataInfos;
-    final Semaphore metadataSemaphore = new Semaphore(1);
+
+    // used to mark whether current metadata info is being updated to registry,
+    // readLock for export or unExport which are support concurrency update,
+    // writeLock for ServiceInstance update which should not work during exporting services
+    final ReentrantReadWriteLock updateLock = new ReentrantReadWriteLock();
+    final Semaphore metadataSemaphore = new Semaphore(0);
+    final Map<String, Set<String>> serviceToAppsMapping = new HashMap<>();
+
+    String instanceMetadata;
+    ConcurrentMap<String, InstanceMetadataChangedListener> instanceMetadataChangedListenerMap = new ConcurrentHashMap<>();
+
 
     // ==================================================================================== //
 
@@ -127,31 +149,56 @@ public class InMemoryWritableMetadataService implements WritableMetadataService 
 
     @Override
     public boolean exportURL(URL url) {
-        String registryCluster = RegistryClusterIdentifier.getExtension(url).providerKey(url);
-        String[] clusters = registryCluster.split(",");
-        for (String cluster : clusters) {
-            MetadataInfo metadataInfo = metadataInfos.computeIfAbsent(cluster, k -> {
-                return new MetadataInfo(ApplicationModel.getName());
-            });
-            metadataInfo.addService(new ServiceInfo(url));
+        if (MetadataService.class.getName().equals(url.getServiceInterface())) {
+            this.metadataServiceURL = url;
+            return true;
         }
-        metadataSemaphore.release();
-        return addURL(exportedServiceURLs, url);
+
+        updateLock.readLock().lock();
+        try {
+            String[] clusters = getRegistryCluster(url).split(",");
+            for (String cluster : clusters) {
+                MetadataInfo metadataInfo = metadataInfos.computeIfAbsent(cluster, k -> new MetadataInfo(ApplicationModel.getName()));
+                metadataInfo.addService(new ServiceInfo(url));
+            }
+            metadataSemaphore.release();
+            return addURL(exportedServiceURLs, url);
+        } finally {
+            updateLock.readLock().unlock();
+        }
     }
 
     @Override
     public boolean unexportURL(URL url) {
-        String registryCluster = RegistryClusterIdentifier.getExtension(url).providerKey(url);
-        String[] clusters = registryCluster.split(",");
-        for (String cluster : clusters) {
-            MetadataInfo metadataInfo = metadataInfos.get(cluster);
-            metadataInfo.removeService(url.getProtocolServiceKey());
-            if (metadataInfo.getServices().isEmpty()) {
-                metadataInfos.remove(cluster);
-            }
+        if (MetadataService.class.getName().equals(url.getServiceInterface())) {
+            // TODO, metadata service need to be unexported.
+            this.metadataServiceURL = null;
+            return true;
         }
-        metadataSemaphore.release();
-        return removeURL(exportedServiceURLs, url);
+
+        updateLock.readLock().lock();
+        try {
+            String[] clusters = getRegistryCluster(url).split(",");
+            for (String cluster : clusters) {
+                MetadataInfo metadataInfo = metadataInfos.get(cluster);
+                metadataInfo.removeService(url.getProtocolServiceKey());
+//            if (metadataInfo.getServices().isEmpty()) {
+//                metadataInfos.remove(cluster);
+//            }
+            }
+            metadataSemaphore.release();
+            return removeURL(exportedServiceURLs, url);
+        } finally {
+            updateLock.readLock().unlock();
+        }
+    }
+
+    private String getRegistryCluster(URL url) {
+        String registryCluster = RegistryClusterIdentifier.getExtension(url).providerKey(url);
+        if (StringUtils.isEmpty(registryCluster)) {
+            registryCluster = DEFAULT_KEY;
+        }
+        return registryCluster;
     }
 
     @Override
@@ -165,25 +212,25 @@ public class InMemoryWritableMetadataService implements WritableMetadataService 
     }
 
     @Override
-    public void publishServiceDefinition(URL providerUrl) {
+    public void publishServiceDefinition(URL url) {
         try {
-            if (!ProtocolUtils.isGeneric(providerUrl.getParameter(GENERIC_KEY))) {
-                String interfaceName = providerUrl.getParameter(INTERFACE_KEY);
-                if (StringUtils.isNotEmpty(interfaceName)) {
-                    Class interfaceClass = Class.forName(interfaceName);
-                    ServiceDefinition serviceDefinition = ServiceDefinitionBuilder.build(interfaceClass);
-                    String data = JSON.toJSONString(serviceDefinition);
-                    serviceDefinitions.put(providerUrl.getServiceKey(), data);
-                    return;
-                }
-                logger.error("publishProvider interfaceName is empty . providerUrl: " + providerUrl.toFullString());
-            } else if (CONSUMER_SIDE.equalsIgnoreCase(providerUrl.getParameter(SIDE_KEY))) {
+            String interfaceName = url.getServiceInterface();
+            if (StringUtils.isNotEmpty(interfaceName)
+                && !ProtocolUtils.isGeneric(url.getParameter(GENERIC_KEY))) {
+                Class interfaceClass = Class.forName(interfaceName);
+                ServiceDefinition serviceDefinition = ServiceDefinitionBuilder.build(interfaceClass);
+                Gson gson = new Gson();
+                String data = gson.toJson(serviceDefinition);
+                serviceDefinitions.put(url.getServiceKey(), data);
+                return;
+            } else if (CONSUMER_SIDE.equalsIgnoreCase(url.getParameter(SIDE_KEY))) {
                 //to avoid consumer generic invoke style error
                 return;
             }
-        } catch (ClassNotFoundException e) {
+            logger.error("publish service definition interfaceName is empty. url: " + url.toFullString());
+        } catch (Throwable e) {
             //ignore error
-            logger.error("publishProvider getServiceDescriptor error. providerUrl: " + providerUrl.toFullString(), e);
+            logger.error("publish service definition getServiceDescriptor error. url: " + url.toFullString(), e);
         }
     }
 
@@ -211,16 +258,91 @@ public class InMemoryWritableMetadataService implements WritableMetadataService 
         return null;
     }
 
+    @Override
+    public void exportInstanceMetadata(String metadata) {
+        this.instanceMetadata = metadata;
+    }
+
+    @Override
+    public Map<String, InstanceMetadataChangedListener> getInstanceMetadataChangedListenerMap() {
+        return instanceMetadataChangedListenerMap;
+    }
+
+    @Override
+    public String getAndListenInstanceMetadata(String consumerId, InstanceMetadataChangedListener listener) {
+        instanceMetadataChangedListenerMap.put(consumerId, listener);
+        return instanceMetadata;
+    }
+
+    @Override
+    public MetadataInfo getDefaultMetadataInfo() {
+        if (CollectionUtils.isEmptyMap(metadataInfos)) {
+            return null;
+        }
+        for (Map.Entry<String, MetadataInfo> entry : metadataInfos.entrySet()) {
+            if (entry.getKey().equalsIgnoreCase(DEFAULT_KEY)) {
+                return entry.getValue();
+            }
+        }
+        return metadataInfos.entrySet().iterator().next().getValue();
+    }
+
     public void blockUntilUpdated() {
         try {
-            metadataSemaphore.acquire();
+            metadataSemaphore.tryAcquire(ConfigurationUtils.get(METADATA_PUBLISH_DELAY_KEY, DEFAULT_METADATA_PUBLISH_DELAY) * 100L, TimeUnit.MILLISECONDS);
+            metadataSemaphore.drainPermits();
+            updateLock.writeLock().lock();
         } catch (InterruptedException e) {
             logger.warn("metadata refresh thread has been interrupted unexpectedly while waiting for update.", e);
         }
     }
 
+    public void releaseBlock() {
+        updateLock.writeLock().unlock();
+    }
+
     public Map<String, MetadataInfo> getMetadataInfos() {
         return metadataInfos;
+    }
+
+    void addMetaServiceURL(URL url) {
+        this.metadataServiceURL = url;
+    }
+
+    @Override
+    public URL getMetadataServiceURL() {
+        return this.metadataServiceURL;
+    }
+
+    @Override
+    public void putCachedMapping(String serviceKey, Set<String> apps) {
+        serviceToAppsMapping.put(serviceKey, new TreeSet<>(apps));
+    }
+
+    @Override
+    public Set<String> getCachedMapping(String mappingKey) {
+        return serviceToAppsMapping.get(mappingKey);
+    }
+
+    @Override
+    public Set<String> getCachedMapping(URL consumerURL) {
+        String serviceKey = ServiceNameMapping.buildMappingKey(consumerURL);
+        return serviceToAppsMapping.get(serviceKey);
+    }
+
+    @Override
+    public Set<String> removeCachedMapping(String serviceKey) {
+        return serviceToAppsMapping.remove(serviceKey);
+    }
+
+    @Override
+    public Map<String, Set<String>> getCachedMapping() {
+        return serviceToAppsMapping;
+    }
+
+    @Override
+    public void setMetadataServiceURL(URL url) {
+        this.metadataServiceURL = url;
     }
 
     boolean addURL(Map<String, SortedSet<URL>> serviceURLs, URL url) {
@@ -282,8 +404,8 @@ public class InMemoryWritableMetadataService implements WritableMetadataService 
 
     private boolean isAcceptableProtocol(String protocol, URL url) {
         return protocol == null
-                || protocol.equals(url.getParameter(PROTOCOL_KEY))
-                || protocol.equals(url.getProtocol());
+            || protocol.equals(url.getParameter(PROTOCOL_KEY))
+            || protocol.equals(url.getProtocol());
     }
 
 
