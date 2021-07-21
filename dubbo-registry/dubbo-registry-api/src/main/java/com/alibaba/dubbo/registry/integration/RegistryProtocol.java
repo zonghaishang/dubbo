@@ -147,6 +147,17 @@ public class RegistryProtocol implements Protocol {
 
         if (register) {
             register(registryUrl, registeredProviderUrl);
+
+            // mock register router
+            URL router = new URL("router", "0.0.0.0", 0, new HashMap<>());
+            router = router.addParameters("interface", registeredProviderUrl.getServiceInterface(),
+                    "dynamic", "false",
+                    "enabled", "true",
+                    "routerImpl", "xxxImpl",
+                    "category", "routers",
+                    "router", "customRouter");
+            registry.register(router);
+
             ProviderConsumerRegTable.getProviderWrapper(originInvoker).setReg(true);
         }
 
