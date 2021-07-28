@@ -16,16 +16,15 @@
  */
 package org.apache.dubbo.common;
 
+import org.apache.dubbo.common.url.component.ServiceConfigURL;
 import org.apache.dubbo.common.utils.CollectionUtils;
 
-import org.apache.dubbo.common.utils.StringUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
 
@@ -33,14 +32,30 @@ import static org.hamcrest.CoreMatchers.anyOf;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.fail;
 
 public class URLTest {
+
+    @Test
+    public void test_ignore_pond() {
+        URL url = URL.valueOf("dubbo://admin:hello1234@10.20.130.230:20880/context/path#index?version=1.0.0&id=org.apache.dubbo.config.RegistryConfig#0");
+        assertURLStrDecoder(url);
+        assertEquals("dubbo", url.getProtocol());
+        assertEquals("admin", url.getUsername());
+        assertEquals("hello1234", url.getPassword());
+        assertEquals("10.20.130.230", url.getHost());
+        assertEquals("10.20.130.230:20880", url.getAddress());
+        assertEquals(20880, url.getPort());
+        assertEquals("context/path", url.getPath());
+        assertEquals(2, url.getParameters().size());
+        assertEquals("1.0.0", url.getVersion());
+        assertEquals("org.apache.dubbo.config.RegistryConfig#0", url.getParameter("id"));
+    }
 
     @Test
     public void test_valueOf_noProtocolAndHost() throws Exception {
@@ -54,7 +69,7 @@ public class URLTest {
         assertEquals(0, url.getPort());
         assertEquals("context/path", url.getPath());
         assertEquals(2, url.getParameters().size());
-        assertEquals("1.0.0", url.getParameter("version"));
+        assertEquals("1.0.0", url.getVersion());
         assertEquals("morgan", url.getParameter("application"));
 
         url = URL.valueOf("context/path?version=1.0.0&application=morgan");
@@ -67,7 +82,7 @@ public class URLTest {
         assertEquals(0, url.getPort());
         assertEquals("path", url.getPath());
         assertEquals(2, url.getParameters().size());
-        assertEquals("1.0.0", url.getParameter("version"));
+        assertEquals("1.0.0", url.getVersion());
         assertEquals("morgan", url.getParameter("application"));
     }
 
@@ -136,7 +151,7 @@ public class URLTest {
         assertEquals(20880, url.getPort());
         assertEquals("context/path", url.getPath());
         assertEquals(2, url.getParameters().size());
-        assertEquals("1.0.0", url.getParameter("version"));
+        assertEquals("1.0.0", url.getVersion());
         assertEquals("morgan", url.getParameter("application"));
     }
 
@@ -264,7 +279,7 @@ public class URLTest {
         assertEquals(20880, url.getPort());
         assertNull(url.getPath());
         assertEquals(1, url.getParameters().size());
-        assertEquals("1.0.0", url.getParameter("version"));
+        assertEquals("1.0.0", url.getVersion());
 
         url = URL.valueOf("dubbo://admin:hello1234@10.20.130.230:20880/context/path?version=1.0.0&application=morgan");
         assertURLStrDecoder(url);
@@ -276,10 +291,10 @@ public class URLTest {
         assertEquals(20880, url.getPort());
         assertEquals("context/path", url.getPath());
         assertEquals(2, url.getParameters().size());
-        assertEquals("1.0.0", url.getParameter("version"));
+        assertEquals("1.0.0", url.getVersion());
         assertEquals("morgan", url.getParameter("application"));
 
-        url = URL.valueOf("dubbo://admin:hello1234@10.20.130.230:20880/context/path?version=1.0.0&application=morgan&noValue");
+        url = URL.valueOf("dubbo://admin:hello1234@10.20.130.230:20880/context/path?version=1.0.0&application=morgan&noValue=");
         assertURLStrDecoder(url);
         assertEquals("dubbo", url.getProtocol());
         assertEquals("admin", url.getUsername());
@@ -289,7 +304,7 @@ public class URLTest {
         assertEquals(20880, url.getPort());
         assertEquals("context/path", url.getPath());
         assertEquals(3, url.getParameters().size());
-        assertEquals("1.0.0", url.getParameter("version"));
+        assertEquals("1.0.0", url.getVersion());
         assertEquals("morgan", url.getParameter("application"));
         assertEquals("noValue", url.getParameter("noValue"));
     }
@@ -305,7 +320,7 @@ public class URLTest {
 
     @Test
     public void test_noValueKey() throws Exception {
-        URL url = URL.valueOf("http://1.2.3.4:8080/path?k0&k1=v1");
+        URL url = URL.valueOf("http://1.2.3.4:8080/path?k0=&k1=v1");
 
         assertURLStrDecoder(url);
         assertTrue(url.hasParameter("k0"));
@@ -348,11 +363,11 @@ public class URLTest {
 
     @Test
     public void test_getAbsolutePath() throws Exception {
-        URL url = new URL("p1", "1.2.2.2", 33);
+        URL url = new ServiceConfigURL("p1", "1.2.2.2", 33);
         assertURLStrDecoder(url);
         assertNull(url.getAbsolutePath());
 
-        url = new URL("file", null, 90, "/home/user1/route.js");
+        url = new ServiceConfigURL("file", null, 90, "/home/user1/route.js");
         assertURLStrDecoder(url);
         assertEquals("/home/user1/route.js", url.getAbsolutePath());
     }
@@ -365,7 +380,7 @@ public class URLTest {
         Map<String, String> params = new HashMap<String, String>();
         params.put("version", "1.0.0");
         params.put("application", "morgan");
-        URL url2 = new URL("dubbo", "admin", "hello1234", "10.20.130.230", 20880, "context/path", params);
+        URL url2 = new ServiceConfigURL("dubbo", "admin", "hello1234", "10.20.130.230", 20880, "context/path", params);
 
         assertURLStrDecoder(url2);
         assertEquals(url1, url2);
@@ -407,7 +422,7 @@ public class URLTest {
         assertEquals(20880, url.getPort());
         assertEquals("context/path", url.getPath());
         assertEquals(2, url.getParameters().size());
-        assertEquals("1.0.0", url.getParameter("version"));
+        assertEquals("1.0.0", url.getVersion());
         assertEquals("morgan", url.getParameter("application"));
 
         url = url.setPort(1);
@@ -421,7 +436,7 @@ public class URLTest {
         assertEquals(1, url.getPort());
         assertEquals("context/path", url.getPath());
         assertEquals(2, url.getParameters().size());
-        assertEquals("1.0.0", url.getParameter("version"));
+        assertEquals("1.0.0", url.getVersion());
         assertEquals("morgan", url.getParameter("application"));
 
         url = url.setPath("path");
@@ -435,7 +450,7 @@ public class URLTest {
         assertEquals(1, url.getPort());
         assertEquals("path", url.getPath());
         assertEquals(2, url.getParameters().size());
-        assertEquals("1.0.0", url.getParameter("version"));
+        assertEquals("1.0.0", url.getVersion());
         assertEquals("morgan", url.getParameter("application"));
 
         url = url.setProtocol("protocol");
@@ -449,7 +464,7 @@ public class URLTest {
         assertEquals(1, url.getPort());
         assertEquals("path", url.getPath());
         assertEquals(2, url.getParameters().size());
-        assertEquals("1.0.0", url.getParameter("version"));
+        assertEquals("1.0.0", url.getVersion());
         assertEquals("morgan", url.getParameter("application"));
 
         url = url.setUsername("username");
@@ -463,7 +478,7 @@ public class URLTest {
         assertEquals(1, url.getPort());
         assertEquals("path", url.getPath());
         assertEquals(2, url.getParameters().size());
-        assertEquals("1.0.0", url.getParameter("version"));
+        assertEquals("1.0.0", url.getVersion());
         assertEquals("morgan", url.getParameter("application"));
 
         url = url.setPassword("password");
@@ -477,7 +492,7 @@ public class URLTest {
         assertEquals(1, url.getPort());
         assertEquals("path", url.getPath());
         assertEquals(2, url.getParameters().size());
-        assertEquals("1.0.0", url.getParameter("version"));
+        assertEquals("1.0.0", url.getVersion());
         assertEquals("morgan", url.getParameter("application"));
     }
 
@@ -499,7 +514,7 @@ public class URLTest {
         assertEquals("morgan", url.getParameter("application"));
         assertEquals("v1", url.getParameter("k1"));
         assertEquals("v2", url.getParameter("k2"));
-        assertNull(url.getParameter("version"));
+        assertNull(url.getVersion());
 
         url = URL.valueOf("dubbo://admin:hello1234@10.20.130.230:20880/context/path?version=1.0.0&application=morgan&k1=v1&k2=v2");
         url = url.removeParameters("version", "application", "NotExistedKey");
@@ -514,7 +529,7 @@ public class URLTest {
         assertEquals(2, url.getParameters().size());
         assertEquals("v1", url.getParameter("k1"));
         assertEquals("v2", url.getParameter("k2"));
-        assertNull(url.getParameter("version"));
+        assertNull(url.getVersion());
         assertNull(url.getParameter("application"));
 
         url = URL.valueOf("dubbo://admin:hello1234@10.20.130.230:20880/context/path?version=1.0.0&application=morgan&k1=v1&k2=v2");
@@ -530,7 +545,7 @@ public class URLTest {
         assertEquals(2, url.getParameters().size());
         assertEquals("v1", url.getParameter("k1"));
         assertEquals("v2", url.getParameter("k2"));
-        assertNull(url.getParameter("version"));
+        assertNull(url.getVersion());
         assertNull(url.getParameter("application"));
     }
 
@@ -680,9 +695,7 @@ public class URLTest {
     @Test
     public void test_windowAbsolutePathBeginWithSlashIsValid() throws Exception {
         final String osProperty = System.getProperties().getProperty("os.name");
-        if (!osProperty.toLowerCase().contains("windows")) {
-            return;
-        }
+        if (!osProperty.toLowerCase().contains("windows")) return;
 
         System.out.println("Test Windows valid path string.");
 
@@ -701,8 +714,7 @@ public class URLTest {
 
     @Test
     public void test_javaNetUrl() throws Exception {
-        java.net.URL url =
-                new java.net.URL("http://admin:hello1234@10.20.130.230:20880/context/path?version=1.0.0&application=morgan#anchor1");
+        java.net.URL url = new java.net.URL("http://admin:hello1234@10.20.130.230:20880/context/path?version=1.0.0&application=morgan#anchor1");
 
         assertEquals("http", url.getProtocol());
         assertEquals("admin:hello1234", url.getUserInfo());
@@ -747,7 +759,7 @@ public class URLTest {
 
     @Test
     public void test_Path() throws Exception {
-        URL url = new URL("dubbo", "localhost", 20880, "////path");
+        URL url = new ServiceConfigURL("dubbo", "localhost", 20880, "////path");
         assertURLStrDecoder(url);
         assertEquals("path", url.getPath());
     }
@@ -776,7 +788,7 @@ public class URLTest {
         assertEquals(20880, url.getPort());
         assertEquals("context/path", url.getPath());
         assertEquals(2, url.getParameters().size());
-        assertEquals("1.0.0", url.getParameter("version"));
+        assertEquals("1.0.0", url.getVersion());
         assertEquals("morgan", url.getParameter("application"));
     }
 
@@ -784,8 +796,7 @@ public class URLTest {
     @Test
     public void testIpV6Address() {
         // Test username or password contains "@"
-        URL url = URL.valueOf(
-                "ad@min111:haha@1234@2001:0db8:85a3:08d3:1319:8a2e:0370:7344:20880/context/path?version=1.0.0&application=morgan");
+        URL url = URL.valueOf("ad@min111:haha@1234@2001:0db8:85a3:08d3:1319:8a2e:0370:7344:20880/context/path?version=1.0.0&application=morgan");
         assertURLStrDecoder(url);
         assertNull(url.getProtocol());
         assertEquals("ad@min111", url.getUsername());
@@ -795,7 +806,7 @@ public class URLTest {
         assertEquals(20880, url.getPort());
         assertEquals("context/path", url.getPath());
         assertEquals(2, url.getParameters().size());
-        assertEquals("1.0.0", url.getParameter("version"));
+        assertEquals("1.0.0", url.getVersion());
         assertEquals("morgan", url.getParameter("application"));
     }
 
@@ -809,7 +820,7 @@ public class URLTest {
         assertEquals(0, url.getPort());
         assertEquals("context/path", url.getPath());
         assertEquals(2, url.getParameters().size());
-        assertEquals("1.0.0", url.getParameter("version"));
+        assertEquals("1.0.0", url.getVersion());
         assertEquals("morgan", url.getParameter("application"));
     }
 
@@ -829,8 +840,7 @@ public class URLTest {
         assertURLStrDecoder(url2);
         Assertions.assertEquals("org.apache.dubbo.test.interfaceName", url2.getServiceKey());
 
-        URL url3 = URL.valueOf(
-                "10.20.130.230:20880/org.apache.dubbo.test.interfaceName?interface=org.apache.dubbo.test.interfaceName&group=group1&version=1.0.0");
+        URL url3 = URL.valueOf("10.20.130.230:20880/org.apache.dubbo.test.interfaceName?interface=org.apache.dubbo.test.interfaceName&group=group1&version=1.0.0");
         assertURLStrDecoder(url3);
         Assertions.assertEquals("group1/org.apache.dubbo.test.interfaceName:1.0.0", url3.getServiceKey());
 
@@ -909,45 +919,39 @@ public class URLTest {
 
     @Test
     public void testEquals() {
-        URL url1 = URL.valueOf("consumer://30.225.20.150/org.apache.dubbo.rpc.service.GenericService?application=" +
+        URL url1 = URL.valueOf("10.20.130.230:20880/context/path?interface=org.apache.dubbo.test.interfaceName&group=group&version=1.0.0");
+        URL url2 = URL.valueOf("10.20.130.230:20880/context/path?interface=org.apache.dubbo.test.interfaceName&group=group&version=1.0.0");
+        Assertions.assertEquals(url1, url2);
+
+        URL url3 = URL.valueOf("10.20.130.230:20881/context/path?interface=org.apache.dubbo.test.interfaceName&group=group&version=1.0.0");
+        Assertions.assertNotEquals(url1, url3);
+
+        URL url4 = URL.valueOf("10.20.130.230:20880/context/path?interface=org.apache.dubbo.test.interfaceName&weight=10&group=group&version=1.0.0");
+        Assertions.assertNotEquals(url1, url4);
+
+        URL url5 = URL.valueOf("10.20.130.230:20880/context/path?interface=org.apache.dubbo.test.interfaceName&weight=10&group=group&version=1.0.0");
+        Assertions.assertEquals(url4, url5);
+
+        URL url6 = URL.valueOf("consumer://30.225.20.150/org.apache.dubbo.rpc.service.GenericService?application=" +
                 "dubbo-demo-api-consumer&category=consumers&check=false&dubbo=2.0.2&generic=true&interface=" +
                 "org.apache.dubbo.demo.DemoService&pid=7375&side=consumer&sticky=false&timestamp=1599556506417");
-        URL url2 = URL.valueOf("consumer://30.225.20.150/org.apache.dubbo.rpc.service.GenericService?application=" +
+        URL url7 = URL.valueOf("consumer://30.225.20.150/org.apache.dubbo.rpc.service.GenericService?application=" +
                 "dubbo-demo-api-consumer&category=consumers&check=false&dubbo=2.0.2&generic=true&interface=" +
                 "org.apache.dubbo.demo.DemoService&pid=7375&side=consumer&sticky=false&timestamp=2299556506417");
-        assertEquals(url1, url2);
+        assertEquals(url6, url7);
 
-        URL url3 = URL.valueOf("consumer://30.225.20.150/org.apache.dubbo.rpc.service.GenericService?application=" +
+        URL url8 = URL.valueOf("consumer://30.225.20.150/org.apache.dubbo.rpc.service.GenericService?application=" +
                 "dubbo-demo-api-consumer&category=consumers&check=false&dubbo=2.0.2&interface=" +
                 "org.apache.dubbo.demo.DemoService&pid=7375&side=consumer&sticky=false&timestamp=2299556506417");
-        assertNotEquals(url2, url3);
+        assertNotEquals(url7, url8);
 
-        URL url4 = URL.valueOf("consumer://30.225.20.150/org.apache.dubbo.rpc.service.GenericService?application=" +
+        URL url9 = URL.valueOf("consumer://30.225.20.150/org.apache.dubbo.rpc.service.GenericService?application=" +
                 "dubbo-demo-api-consumer&category=consumers&check=true&dubbo=2.0.2&interface=" +
                 "org.apache.dubbo.demo.DemoService&pid=7375&side=consumer&sticky=false&timestamp=2299556506417");
-        assertNotEquals(url3, url4);
+        assertNotEquals(url8, url9);
+
     }
 
-    @Test
-    public void testHashcode() {
-        URL url1 = URL.valueOf("consumer://30.225.20.150/org.apache.dubbo.rpc.service.GenericService?application=" +
-                "dubbo-demo-api-consumer&category=consumers&check=false&dubbo=2.0.2&generic=true&interface=" +
-                "org.apache.dubbo.demo.DemoService&pid=7375&side=consumer&sticky=false&timestamp=1599556506417");
-        URL url2 = URL.valueOf("consumer://30.225.20.150/org.apache.dubbo.rpc.service.GenericService?application=" +
-                "dubbo-demo-api-consumer&category=consumers&check=false&dubbo=2.0.2&generic=true&interface=" +
-                "org.apache.dubbo.demo.DemoService&pid=7375&side=consumer&sticky=false&timestamp=2299556506417");
-        assertEquals(url1.hashCode(), url2.hashCode());
-
-        URL url3 = URL.valueOf("consumer://30.225.20.150/org.apache.dubbo.rpc.service.GenericService?application=" +
-                "dubbo-demo-api-consumer&category=consumers&check=false&dubbo=2.0.2&interface=" +
-                "org.apache.dubbo.demo.DemoService&pid=7375&side=consumer&sticky=false&timestamp=2299556506417");
-        assertNotEquals(url2.hashCode(), url3.hashCode());
-
-        URL url4 = URL.valueOf("consumer://30.225.20.150/org.apache.dubbo.rpc.service.GenericService?application=" +
-                "dubbo-demo-api-consumer&category=consumers&check=true&dubbo=2.0.2&interface=" +
-                "org.apache.dubbo.demo.DemoService&pid=7375&side=consumer&sticky=false&timestamp=2299556506417");
-        assertNotEquals(url3.hashCode(), url4.hashCode());
-    }
 
     @Test
     public void testEqualsWithPassword() {
@@ -1008,6 +1012,26 @@ public class URLTest {
         assertFalse(actual1);
         assertTrue(actual2);
     }
+    @Test
+    public void testHashcode() {
+        URL url1 = URL.valueOf("consumer://30.225.20.150/org.apache.dubbo.rpc.service.GenericService?application=" +
+                "dubbo-demo-api-consumer&category=consumers&check=false&dubbo=2.0.2&generic=true&interface=" +
+                "org.apache.dubbo.demo.DemoService&pid=7375&side=consumer&sticky=false&timestamp=1599556506417");
+        URL url2 = URL.valueOf("consumer://30.225.20.150/org.apache.dubbo.rpc.service.GenericService?application=" +
+                "dubbo-demo-api-consumer&category=consumers&check=false&dubbo=2.0.2&generic=true&interface=" +
+                "org.apache.dubbo.demo.DemoService&pid=7375&side=consumer&sticky=false&timestamp=2299556506417");
+        assertEquals(url1.hashCode(), url2.hashCode());
+
+        URL url3 = URL.valueOf("consumer://30.225.20.150/org.apache.dubbo.rpc.service.GenericService?application=" +
+                "dubbo-demo-api-consumer&category=consumers&check=false&dubbo=2.0.2&interface=" +
+                "org.apache.dubbo.demo.DemoService&pid=7375&side=consumer&sticky=false&timestamp=2299556506417");
+        assertNotEquals(url2.hashCode(), url3.hashCode());
+
+        URL url4 = URL.valueOf("consumer://30.225.20.150/org.apache.dubbo.rpc.service.GenericService?application=" +
+                "dubbo-demo-api-consumer&category=consumers&check=true&dubbo=2.0.2&interface=" +
+                "org.apache.dubbo.demo.DemoService&pid=7375&side=consumer&sticky=false&timestamp=2299556506417");
+        assertNotEquals(url3.hashCode(), url4.hashCode());
+    }
 
     @Test
     public void testParameterContainPound() {
@@ -1017,99 +1041,5 @@ public class URLTest {
         Assertions.assertEquals("registry", url.getParameter("protocol"));
     }
 
-    @Test
-    public void testMethodParameters() {
-        // contain "methods" parameter key
-        URL url = URL.valueOf("dubbo://1.1.1.1:20880/test?methods=sayHello,sayBye&sayHello.async=true&sayBye.async=false");
-        String val1 = url.getMethodParameter("sayHello", "async");
-        assertEquals(val1, "true");
-        String val2 = url.getMethodParameter("sayBye", "async");
-        assertEquals(val2, "false");
 
-        Map<String, Map<String, String>> methodParameters = url.getMethodParameters();
-        assertEquals(methodParameters.size(), 2);
-
-        // does not contain "methods" parameter key
-        URL url2 = URL.valueOf("dubbo://1.1.1.1:20880/test?sayHello.async=true&sayBye.async=false");
-        String val3 = url2.getMethodParameter("sayHello", "async");
-        assertEquals(val3, "true");
-        String val4 = url2.getMethodParameter("sayBye", "async");
-        assertEquals(val4, "false");
-    }
-
-    @Test
-    public void testValueOfWithReserveParams() {
-        String base = "dubbo://1.1.1.1:20880/test?group=groupA&version=1.0.0";
-        URL url = URL.valueOf(base, "group");
-        assertEquals(url.getParameter("group"), "groupA");
-        assertNull(url.getParameter("version"));
-
-        URL url2 = URL.valueOf(URL.valueOf(base), new String[]{"group"}, new String[]{"ver"});
-        assertEquals(url2.getParameter("group"), "groupA");
-        assertEquals(url2.getParameter("version"), "1.0.0");
-    }
-
-    @Test
-    public void testGetBackupAddress() {
-        URL url = URL.valueOf("dubbo://127.0.0.0/test?backup=127.0.0.1,127.0.0.2");
-        String backupAddress = url.getBackupAddress();
-        assertEquals(backupAddress, "127.0.0.0,127.0.0.1,127.0.0.2");
-        String backupAddress2 = url.getBackupAddress(20880);
-        assertEquals(backupAddress2, "127.0.0.0:20880,127.0.0.1:20880,127.0.0.2:20880");
-    }
-
-    @Test
-    public void testGetBackupUrls() {
-        URL url = URL.valueOf("dubbo://127.0.0.0:20880/test?backup=127.0.0.1:20881");
-        List<URL> backupUrls = url.getBackupUrls();
-        assertEquals(backupUrls.size(), 2);
-        assertEquals(backupUrls.get(0).toFullString(), "dubbo://127.0.0.0:20880/test?backup=127.0.0.1:20881");
-        assertEquals(backupUrls.get(1).toFullString(), "dubbo://127.0.0.1:20881/test?backup=127.0.0.1:20881");
-    }
-
-    @Test
-    public void testParameterAddEncodedAndGetDecoded() {
-        URL url = URL.valueOf("dubbo://127.0.0.0:20880/test");
-
-        Map<String, String> map = new HashMap<>();
-        map.put("version", "1.0.0");
-        map.put("group", "GroupA");
-        String queryString = StringUtils.toQueryString(map);
-
-        URL url1 = url.addParameterAndEncoded("refer", queryString);
-        String refer = url1.getParameterAndDecoded("refer");
-        assertEquals(refer, queryString);
-
-    }
-
-    @Test
-    public void testGetPrimitiveParameter() {
-        URL url = URL.valueOf("dubbo://127.0.0.0:20880/test?doubleNum=1.1&floatNum=2.2&longNum=3&intNum=4&shortNum=5&byte=6");
-        double doubleNum = url.getParameter("doubleNum", 10.0d);
-        float floatNum = url.getParameter("floatNum", 10.0f);
-        long longNum = url.getParameter("longNum", 10);
-        int intNum = url.getParameter("intNum", 10);
-        short shortNum = url.getParameter("shortNum", (short) 10);
-        byte b = url.getParameter("byte", (byte) 10);
-        assertEquals(doubleNum, 1.1d);
-        assertEquals(floatNum, 2.2f);
-        assertEquals(longNum, 3);
-        assertEquals(intNum, 4);
-        assertEquals(shortNum, 5);
-        assertEquals(b, 6);
-
-        // test defaultValue
-        double doubleNumNotExist = url.getParameter("doubleNumNotExist", 11.0d);
-        float floatNumNotExist = url.getParameter("floatNumNotExist", 12.0f);
-        long longNumNotExist = url.getParameter("longNumNotExist", 13);
-        int intNumNotExist = url.getParameter("intNumNotExist", 14);
-        short shortNumNotExist = url.getParameter("shortNumNotExist", (short) 15);
-        byte bNotExist = url.getParameter("byteNotExist", (byte) 16);
-        assertEquals(doubleNumNotExist, 11.0d);
-        assertEquals(floatNumNotExist, 12.0f);
-        assertEquals(longNumNotExist, 13);
-        assertEquals(intNumNotExist, 14);
-        assertEquals(shortNumNotExist, 15);
-        assertEquals(bNotExist, 16);
-    }
 }

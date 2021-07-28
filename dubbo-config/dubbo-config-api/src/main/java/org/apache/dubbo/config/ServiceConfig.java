@@ -243,8 +243,6 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         } else {
             doExport();
         }
-
-        exported();
     }
 
     public void exported() {
@@ -253,8 +251,8 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
             // dubbo2.7.x does not register serviceNameMapping information with the registry by default.
             // Only when the user manually turns on the service introspection, can he register with the registration center.
             if (url.getParameters().containsKey(SERVICE_NAME_MAPPING_KEY)) {
-                Map<String, String> parameters = getApplication().getParameters();
-                ServiceNameMapping.getExtension(parameters != null ? parameters.get(MAPPING_KEY) : null).map(url);
+                ServiceNameMapping serviceNameMapping = ServiceNameMapping.getDefaultExtension();
+                serviceNameMapping.map(url);
             }
         });
         // dispatch a ServiceConfigExportedEvent since 2.7.4
@@ -318,7 +316,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
             path = interfaceName;
         }
         doExportUrls();
-        bootstrap.setReady(true);
+        exported();
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})

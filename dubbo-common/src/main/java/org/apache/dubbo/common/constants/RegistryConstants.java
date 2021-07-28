@@ -43,6 +43,8 @@ public interface RegistryConstants {
 
     String CONFIGURATORS_CATEGORY = "configurators";
 
+    String ALL_CATEGORIES = "providers,configurators,routers";
+
     String DYNAMIC_CONFIGURATORS_CATEGORY = "dynamicconfigurators";
 
     String APP_DYNAMIC_CONFIGURATORS_CATEGORY = "appdynamicconfigurators";
@@ -59,7 +61,21 @@ public interface RegistryConstants {
 
     String REGISTRY_PUBLISH_INTERFACE_KEY = "publish-interface";
 
+    String REGISTRY_PUBLISH_INSTANCE_KEY = "publish-instance";
+
+    String REGISTER_MODE_KEY = "register-mode";
+
+    String DUBBO_REGISTER_MODE_DEFAULT_KEY = "dubbo.application.register-mode";
+
     String DUBBO_PUBLISH_INTERFACE_DEFAULT_KEY = "dubbo.application.publish-interface";
+
+    String DUBBO_PUBLISH_INSTANCE_DEFAULT_KEY = "dubbo.application.publish-instance";
+
+    String DEFAULT_REGISTER_MODE_INTERFACE = "interface";
+
+    String DEFAULT_REGISTER_MODE_INSTANCE = "instance";
+
+    String DEFAULT_REGISTER_MODE_ALL = "all";
     /**
      * The parameter key of Dubbo Registry type
      *

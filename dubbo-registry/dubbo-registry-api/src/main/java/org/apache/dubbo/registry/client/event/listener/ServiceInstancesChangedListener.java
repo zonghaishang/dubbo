@@ -19,6 +19,7 @@ package org.apache.dubbo.registry.client.event.listener;
 import org.apache.dubbo.common.URL;
 import org.apache.dubbo.common.logger.Logger;
 import org.apache.dubbo.common.logger.LoggerFactory;
+import org.apache.dubbo.common.utils.CollectionUtils;
 import org.apache.dubbo.event.ConditionalEventListener;
 import org.apache.dubbo.event.EventListener;
 import org.apache.dubbo.metadata.MetadataInfo;
@@ -44,6 +45,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.apache.dubbo.common.constants.CommonConstants.REMOTE_METADATA_STORAGE_TYPE;
 import static org.apache.dubbo.common.constants.RegistryConstants.REGISTRY_CLUSTER_KEY;
@@ -66,6 +68,7 @@ public class ServiceInstancesChangedListener implements ConditionalEventListener
     private final String registryId;
     private URL url;
     private Map<String, Set<NotifyListener>> listeners;
+    protected AtomicBoolean destroyed = new AtomicBoolean(false);
 
     private Map<String, List<ServiceInstance>> allInstances;
 
@@ -89,9 +92,14 @@ public class ServiceInstancesChangedListener implements ConditionalEventListener
      * @param event {@link ServiceInstancesChangedEvent}
      */
     public synchronized void onEvent(ServiceInstancesChangedEvent event) {
+        if (destroyed.get() || !accept(event)) {
+            return;
+        }
+
         logger.info("Received instance notification, serviceName: " + event.getServiceName() + ", instances: " + event.getServiceInstances().size());
         String appName = event.getServiceName();
         allInstances.put(appName, event.getServiceInstances());
+
         if (logger.isDebugEnabled()) {
             logger.debug(event.getServiceInstances().toString());
         }
@@ -239,7 +247,8 @@ public class ServiceInstancesChangedListener implements ConditionalEventListener
 
     /**
      * @param event {@link ServiceInstancesChangedEvent event}
-     * @return If service name matches, return <code>true</code>, or <code>false</code>
+     * @return If service na
+     * me matches, return <code>true</code>, or <code>false</code>
      */
     public final boolean accept(ServiceInstancesChangedEvent event) {
         return serviceNames.contains(event.getServiceName());
@@ -247,6 +256,25 @@ public class ServiceInstancesChangedListener implements ConditionalEventListener
 
     public String getRegistryId() {
         return registryId;
+    }
+
+    /**
+     * Since this listener is shared among interfaces, destroy this listener only when all interface listener are unsubscribed
+     */
+    public synchronized void destroy() {
+        if (!destroyed.get()) {
+            if (CollectionUtils.isEmptyMap(listeners)) {
+                if (destroyed.compareAndSet(false, true)) {
+                    allInstances.clear();
+                    serviceUrls.clear();
+                    revisionToMetadata.clear();
+                }
+            }
+        }
+    }
+
+    public boolean isDestroyed() {
+        return destroyed.get();
     }
 
     @Override
@@ -264,5 +292,9 @@ public class ServiceInstancesChangedListener implements ConditionalEventListener
     @Override
     public int hashCode() {
         return Objects.hash(getClass(), getServiceNames(), getRegistryId());
+    }
+
+    public Map<String, List<ServiceInstance>> getAllInstances() {
+        return allInstances;
     }
 }

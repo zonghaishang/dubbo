@@ -64,16 +64,18 @@ public abstract class AbstractMetadataReportFactory implements MetadataReportFac
         }
     }
 
-    protected abstract MetadataReport createMetadataReport(URL url);
-
-    // only for unit test
-    @Deprecated
-    public static void clear() {
+    public static void destroy() {
         LOCK.lock();
         try {
+            for (MetadataReport metadataReport : SERVICE_STORE_MAP.values()) {
+                metadataReport.destroy();
+            }
             SERVICE_STORE_MAP.clear();
         } finally {
             LOCK.unlock();
         }
+
     }
+
+    protected abstract MetadataReport createMetadataReport(URL url);
 }

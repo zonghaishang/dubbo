@@ -69,6 +69,7 @@ import static org.apache.dubbo.common.constants.RegistryConstants.SUBSCRIBED_SER
 import static org.apache.dubbo.common.function.ThrowableAction.execute;
 import static org.apache.dubbo.common.utils.CollectionUtils.isEmpty;
 import static org.apache.dubbo.common.utils.StringUtils.isBlank;
+import static org.apache.dubbo.metadata.ServiceNameMapping.toStringKeys;
 import static org.apache.dubbo.registry.client.ServiceDiscoveryFactory.getExtension;
 import static org.apache.dubbo.rpc.Constants.ID_KEY;
 
@@ -261,7 +262,7 @@ public class ServiceDiscoveryRegistry implements Registry {
 
         Set<String> serviceNames = getServices(url, listener);
 
-        if (CollectionUtils.isEmpty(serviceNames)) {
+        if (isEmpty(serviceNames)) {
             logger.warn("Should has at least one way to know which services this interface belongs to, subscription url: " + url);
             return;
         }
@@ -317,13 +318,15 @@ public class ServiceDiscoveryRegistry implements Registry {
     }
 
     protected void subscribeURLs(URL url, NotifyListener listener, Set<String> serviceNames) {
-        String serviceNamesKey = serviceNames.toString();
+        serviceNames = new TreeSet<>(serviceNames);
+        String serviceNamesKey = toStringKeys(serviceNames);
         String protocolServiceKey = url.getServiceKey() + GROUP_CHAR_SEPARATOR + url.getParameter(PROTOCOL_KEY, DUBBO);
         serviceToAppsMapping.put(protocolServiceKey, serviceNamesKey);
 
         // register ServiceInstancesChangedListener
+        Set<String> finalServiceNames = serviceNames;
         ServiceInstancesChangedListener serviceListener = serviceListeners.computeIfAbsent(serviceNamesKey,
-                k -> new ServiceInstancesChangedListener(serviceNames, serviceDiscovery));
+                k -> new ServiceInstancesChangedListener(finalServiceNames, serviceDiscovery));
         serviceListener.setUrl(url);
         listener.addServiceListener(serviceListener);
 
@@ -464,7 +467,12 @@ public class ServiceDiscoveryRegistry implements Registry {
                 || Objects.equals(protocol, targetURL.getProtocol());
     }
 
+    public Map<String, ServiceInstancesChangedListener> getServiceListeners() {
+        return serviceListeners;
+    }
+
     private class DefaultMappingListener implements MappingListener {
+        private final Logger logger = LoggerFactory.getLogger(DefaultMappingListener.class);
         private URL url;
         private Set<String> oldApps;
         private NotifyListener listener;
@@ -477,21 +485,26 @@ public class ServiceDiscoveryRegistry implements Registry {
 
         @Override
         public void onEvent(MappingChangedEvent event) {
+            if (logger.isDebugEnabled()) {
+                logger.debug("Received mapping notification from meta server, " + event);
+            }
             Set<String> newApps = event.getApps();
             Set<String> tempOldApps = oldApps;
             oldApps = newApps;
 
-            if (CollectionUtils.isEmpty(newApps)) {
+            if (isEmpty(newApps)) {
                 return;
             }
 
-            if (CollectionUtils.isEmpty(tempOldApps) && newApps.size() > 0) {
+            if (isEmpty(tempOldApps) && newApps.size() > 0) {
+                WritableMetadataService.getDefaultExtension().putCachedMapping(ServiceNameMapping.buildMappingKey(url), newApps);
                 subscribeURLs(url, listener, newApps);
                 return;
             }
 
             for (String newAppName : newApps) {
                 if (!tempOldApps.contains(newAppName)) {
+                    WritableMetadataService.getDefaultExtension().putCachedMapping(ServiceNameMapping.buildMappingKey(url), newApps);
                     subscribeURLs(url, listener, newApps);
                     return;
                 }

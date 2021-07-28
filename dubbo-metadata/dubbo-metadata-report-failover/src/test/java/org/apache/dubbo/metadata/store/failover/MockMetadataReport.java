@@ -95,6 +95,11 @@ public class MockMetadataReport implements MetadataReport {
     }
 
     @Override
+    public void destroy() {
+
+    }
+
+    @Override
     public void saveServiceMetadata(ServiceMetadataIdentifier metadataIdentifier, URL url) {
         serviceMetadata.putIfAbsent(metadataIdentifier, new CopyOnWriteArrayList<>());
         List<String> urls = serviceMetadata.get(metadataIdentifier);

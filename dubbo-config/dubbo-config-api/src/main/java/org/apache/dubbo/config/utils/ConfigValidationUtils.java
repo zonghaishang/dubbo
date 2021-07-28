@@ -76,7 +76,6 @@ import static org.apache.dubbo.common.constants.CommonConstants.ANYHOST_VALUE;
 import static org.apache.dubbo.common.constants.CommonConstants.CLUSTER_KEY;
 import static org.apache.dubbo.common.constants.CommonConstants.COMMA_SEPARATOR;
 import static org.apache.dubbo.common.constants.CommonConstants.DEFAULT_KEY;
-import static org.apache.dubbo.common.constants.CommonConstants.DISPATHER;
 import static org.apache.dubbo.common.constants.CommonConstants.DUBBO_MONITOR_ADDRESS;
 import static org.apache.dubbo.common.constants.CommonConstants.DUBBO_PROTOCOL;
 import static org.apache.dubbo.common.constants.CommonConstants.FILE_KEY;
@@ -495,7 +494,7 @@ public class ConfigValidationUtils {
             checkExtension(Transporter.class, TRANSPORTER_KEY, config.getTransporter());
             checkExtension(Exchanger.class, EXCHANGER_KEY, config.getExchanger());
             checkExtension(Dispatcher.class, DISPATCHER_KEY, config.getDispatcher());
-            checkExtension(Dispatcher.class, DISPATHER, config.getDispather());
+            checkExtension(Dispatcher.class, "dispather", config.getDispather());
             checkExtension(ThreadPool.class, THREADPOOL_KEY, config.getThreadpool());
         }
     }

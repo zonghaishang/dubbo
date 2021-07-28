@@ -22,6 +22,7 @@ import org.apache.dubbo.rpc.support.ProtocolUtils;
 
 import static org.apache.dubbo.common.constants.CommonConstants.INVOKER_LISTENER_KEY;
 import static org.apache.dubbo.common.constants.CommonConstants.REFERENCE_FILTER_KEY;
+import static org.apache.dubbo.common.constants.CommonConstants.REFER_ASYNC_KEY;
 import static org.apache.dubbo.common.constants.CommonConstants.STUB_EVENT_KEY;
 
 /**
@@ -80,6 +81,19 @@ public abstract class AbstractReferenceConfig extends AbstractInterfaceConfig {
 
     protected String router;
 
+    /**
+     * Weather the reference is refer asynchronously
+     */
+    private Boolean referAsync;
+
+    @Override
+    protected void checkDefault() {
+        super.checkDefault();
+        if (sticky == null) {
+            sticky = false;
+        }
+    }
+
     public Boolean isCheck() {
         return check;
     }
@@ -97,7 +111,7 @@ public abstract class AbstractReferenceConfig extends AbstractInterfaceConfig {
     }
 
     @Deprecated
-    @Parameter(excluded = true)
+    @Parameter(excluded = true, attribute = false)
     public Boolean isGeneric() {
         return this.generic != null ? ProtocolUtils.isGeneric(generic) : null;
     }
@@ -222,5 +236,14 @@ public abstract class AbstractReferenceConfig extends AbstractInterfaceConfig {
 
     public void setRouter(String router) {
         this.router = router;
+    }
+
+    @Parameter(key = REFER_ASYNC_KEY)
+    public Boolean getReferAsync() {
+        return referAsync;
+    }
+
+    public void setReferAsync(Boolean referAsync) {
+        this.referAsync = referAsync;
     }
 }

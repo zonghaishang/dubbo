@@ -108,7 +108,7 @@ public class FileSystemServiceDiscovery extends AbstractServiceDiscovery impleme
     }
 
     private String getServiceInstanceId(ServiceInstance serviceInstance) {
-        String id = serviceInstance.getId();
+        String id = serviceInstance.getAddress();
         if (StringUtils.isBlank(id)) {
             return serviceInstance.getHost() + "." + serviceInstance.getPort();
         }
@@ -133,8 +133,10 @@ public class FileSystemServiceDiscovery extends AbstractServiceDiscovery impleme
         return null;
     }
 
+
     @Override
-    public void doRegister(ServiceInstance serviceInstance) {
+    public void doRegister(ServiceInstance serviceInstance) throws RuntimeException {
+        this.serviceInstance = serviceInstance;
         String serviceInstanceId = getServiceInstanceId(serviceInstance);
         String serviceName = getServiceName(serviceInstance);
         String content = toJSONString(serviceInstance);
@@ -166,9 +168,8 @@ public class FileSystemServiceDiscovery extends AbstractServiceDiscovery impleme
         });
     }
 
-
     @Override
-    public void doUpdate(ServiceInstance serviceInstance) {
+    public void doUpdate(ServiceInstance serviceInstance) throws RuntimeException {
         register(serviceInstance);
     }
 

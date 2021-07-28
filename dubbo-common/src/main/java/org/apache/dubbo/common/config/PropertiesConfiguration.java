@@ -21,6 +21,7 @@ import org.apache.dubbo.common.utils.ConfigUtils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
@@ -30,6 +31,7 @@ import java.util.Set;
 public class PropertiesConfiguration implements Configuration {
 
     public PropertiesConfiguration() {
+
         ExtensionLoader<OrderedPropertiesProvider> propertiesProviderExtensionLoader = ExtensionLoader.getExtensionLoader(OrderedPropertiesProvider.class);
         Set<String> propertiesProviderNames = propertiesProviderExtensionLoader.getSupportedExtensions();
         if (propertiesProviderNames == null || propertiesProviderNames.isEmpty()) {
@@ -60,5 +62,9 @@ public class PropertiesConfiguration implements Configuration {
     @Override
     public Object getInternalProperty(String key) {
         return ConfigUtils.getProperty(key);
+    }
+
+    public Map<String, String> getProperties() {
+        return (Map) ConfigUtils.getProperties();
     }
 }

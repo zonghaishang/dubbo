@@ -26,8 +26,8 @@ import org.apache.dubbo.common.utils.CollectionUtils;
 import org.apache.dubbo.common.utils.NetUtils;
 import org.apache.dubbo.registry.AddressListener;
 import org.apache.dubbo.registry.Constants;
-import org.apache.dubbo.registry.integration.AbstractConfiguratorListener;
 import org.apache.dubbo.registry.client.event.listener.ServiceInstancesChangedListener;
+import org.apache.dubbo.registry.integration.AbstractConfiguratorListener;
 import org.apache.dubbo.registry.integration.DynamicDirectory;
 import org.apache.dubbo.rpc.Invoker;
 import org.apache.dubbo.rpc.Protocol;
@@ -37,10 +37,8 @@ import org.apache.dubbo.rpc.cluster.Configurator;
 import org.apache.dubbo.rpc.cluster.RouterChain;
 import org.apache.dubbo.rpc.model.ApplicationModel;
 
-import org.eclipse.collections.impl.map.mutable.UnifiedMap;
-import org.apache.dubbo.rpc.RpcContext;
-
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -195,7 +193,7 @@ public class ServiceDiscoveryRegistryDirectory<T> extends DynamicDirectory<T> {
         return url;
     }
 
-    @Override
+//     @Override
     public boolean isServiceDiscovery() {
         return true;
     }
@@ -205,10 +203,10 @@ public class ServiceDiscoveryRegistryDirectory<T> extends DynamicDirectory<T> {
      * <p>
      * FIXME, make sure deprecated "interface-application" mapping item be cleared in time.
      */
-    @Override
+     @Override
     public boolean isNotificationReceived() {
         return serviceListener == null || serviceListener.isDestroyed()
-            || serviceListener.getAllInstances().size() == serviceListener.getServiceNames().size();
+                || serviceListener.getAllInstances().size() == serviceListener.getServiceNames().size();
     }
 
     private void refreshInvoker(List<URL> invokerUrls) {
@@ -321,7 +319,7 @@ public class ServiceDiscoveryRegistryDirectory<T> extends DynamicDirectory<T> {
         }
 
         if (oldURL instanceof OverrideInstanceAddressURL || newURL instanceof OverrideInstanceAddressURL) {
-            if(!(oldURL instanceof OverrideInstanceAddressURL && newURL instanceof OverrideInstanceAddressURL)) {
+            if (!(oldURL instanceof OverrideInstanceAddressURL && newURL instanceof OverrideInstanceAddressURL)) {
                 // sub-class changed
                 return true;
             } else {
@@ -332,7 +330,7 @@ public class ServiceDiscoveryRegistryDirectory<T> extends DynamicDirectory<T> {
         }
 
         return !oldURL.getMetadataInfo().getServiceInfo(getConsumerUrl().getProtocolServiceKey())
-            .equals(newURL.getMetadataInfo().getServiceInfo(getConsumerUrl().getProtocolServiceKey()));
+                .equals(newURL.getMetadataInfo().getServiceInfo(getConsumerUrl().getProtocolServiceKey()));
     }
 
     private List<Invoker<T>> toMergeInvokerList(List<Invoker<T>> invokers) {

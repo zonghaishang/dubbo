@@ -26,10 +26,12 @@ import java.util.Map;
 import static org.apache.dubbo.common.constants.CommonConstants.EXTRA_KEYS_KEY;
 import static org.apache.dubbo.common.constants.CommonConstants.SHUTDOWN_WAIT_KEY;
 import static org.apache.dubbo.common.constants.CommonConstants.PREFERRED_KEY;
+import static org.apache.dubbo.common.constants.RegistryConstants.REGISTRY_CLUSTER_KEY;
 import static org.apache.dubbo.common.constants.RegistryConstants.REGISTRY_KEY;
+import static org.apache.dubbo.common.constants.RegistryConstants.REGISTRY_PUBLISH_INSTANCE_KEY;
+import static org.apache.dubbo.common.constants.RegistryConstants.REGISTRY_PUBLISH_INTERFACE_KEY;
 import static org.apache.dubbo.common.constants.RemotingConstants.BACKUP_KEY;
 import static org.apache.dubbo.common.utils.PojoUtils.updatePropertyIfAbsent;
-import static org.apache.dubbo.config.Constants.REGISTRIES_PREFIX;
 
 /**
  * RegistryConfig
@@ -180,6 +182,10 @@ public class RegistryConfig extends AbstractConfig {
      */
     private Integer weight;
 
+    private Boolean publishInterface;
+
+    private Boolean publishInstance;
+
     public RegistryConfig() {
     }
 
@@ -193,6 +199,7 @@ public class RegistryConfig extends AbstractConfig {
     }
 
     @Override
+    @Parameter(key = REGISTRY_CLUSTER_KEY)
     public String getId() {
         return super.getId();
     }
@@ -203,6 +210,7 @@ public class RegistryConfig extends AbstractConfig {
 
     public void setProtocol(String protocol) {
         this.protocol = protocol;
+        // protocol as id is inappropriate, registries's protocol may be duplicated
 //        this.updateIdIfAbsent(protocol);
     }
 
@@ -302,7 +310,7 @@ public class RegistryConfig extends AbstractConfig {
      * @deprecated
      */
     @Deprecated
-    @Parameter(excluded = true)
+    @Parameter(excluded = true, attribute = false)
     public String getTransport() {
         return getTransporter();
     }
@@ -484,7 +492,6 @@ public class RegistryConfig extends AbstractConfig {
         this.accepts = accepts;
     }
 
-    @Parameter(key = PREFER_REGISTRY_KEY)
     public Boolean getPreferred() {
         return preferred;
     }
@@ -501,17 +508,26 @@ public class RegistryConfig extends AbstractConfig {
         this.weight = weight;
     }
 
-    @Override
-    public void refresh() {
-        super.refresh();
-        if (StringUtils.isNotEmpty(this.getId())) {
-            this.setPrefix(REGISTRIES_PREFIX);
-            super.refresh();
-        }
+    @Parameter(key = REGISTRY_PUBLISH_INTERFACE_KEY)
+    public Boolean getPublishInterface() {
+        return publishInterface;
+    }
+
+    public void setPublishInterface(Boolean publishInterface) {
+        this.publishInterface = publishInterface;
+    }
+
+    @Parameter(key = REGISTRY_PUBLISH_INSTANCE_KEY)
+    public Boolean getPublishInstance() {
+        return publishInstance;
+    }
+
+    public void setPublishInstance(Boolean publishInstance) {
+        this.publishInstance = publishInstance;
     }
 
     @Override
-    @Parameter(excluded = true)
+    @Parameter(excluded = true, attribute = false)
     public boolean isValid() {
         // empty protocol will default to 'dubbo'
         return !StringUtils.isEmpty(address);

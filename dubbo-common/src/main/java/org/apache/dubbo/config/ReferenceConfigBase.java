@@ -18,6 +18,7 @@ package org.apache.dubbo.config;
 
 import org.apache.dubbo.common.URL;
 import org.apache.dubbo.common.utils.ClassUtils;
+import org.apache.dubbo.common.utils.RegexProperties;
 import org.apache.dubbo.common.utils.StringUtils;
 import org.apache.dubbo.config.annotation.Reference;
 import org.apache.dubbo.config.support.Parameter;
@@ -199,13 +200,7 @@ public abstract class ReferenceConfigBase<T> extends AbstractReferenceConfig {
         return serviceMetadata;
     }
 
-    @Override
-    @Parameter(excluded = true)
-    public String getPrefix() {
-        return DUBBO + ".reference." + interfaceName;
-    }
-
-    public void resolveFile() {
+    protected void resolveFile() {
         String resolve = System.getProperty(interfaceName);
         String resolveFile = null;
         if (StringUtils.isEmpty(resolve)) {
@@ -217,7 +212,7 @@ public abstract class ReferenceConfigBase<T> extends AbstractReferenceConfig {
                 }
             }
             if (resolveFile != null && resolveFile.length() > 0) {
-                Properties properties = new Properties();
+                Properties properties = new RegexProperties();
                 try (FileInputStream fis = new FileInputStream(new File(resolveFile))) {
                     properties.load(fis);
                 } catch (IOException e) {
@@ -264,6 +259,15 @@ public abstract class ReferenceConfigBase<T> extends AbstractReferenceConfig {
     @Override
     public String getGroup() {
         return StringUtils.isEmpty(this.group) ? (consumer != null ? consumer.getGroup() : this.group) : this.group;
+    }
+
+    public Boolean shouldReferAsync() {
+        Boolean shouldReferAsync = getReferAsync();
+        if (shouldReferAsync == null) {
+            shouldReferAsync = consumer != null && consumer.getReferAsync() != null && consumer.getReferAsync();
+        }
+
+        return shouldReferAsync;
     }
 
     public abstract T get();

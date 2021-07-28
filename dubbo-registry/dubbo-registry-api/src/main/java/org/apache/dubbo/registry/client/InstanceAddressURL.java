@@ -17,6 +17,8 @@
 package org.apache.dubbo.registry.client;
 
 import org.apache.dubbo.common.URL;
+import org.apache.dubbo.common.url.component.URLAddress;
+import org.apache.dubbo.common.url.component.URLParam;
 import org.apache.dubbo.common.utils.StringUtils;
 import org.apache.dubbo.metadata.MetadataInfo;
 import org.apache.dubbo.rpc.RpcContext;
@@ -25,12 +27,12 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static org.apache.dubbo.common.constants.CommonConstants.CONSUMER_SIDE;
 import static org.apache.dubbo.common.constants.CommonConstants.GROUP_KEY;
 import static org.apache.dubbo.common.constants.CommonConstants.INTERFACE_KEY;
 import static org.apache.dubbo.common.constants.CommonConstants.REMOTE_APPLICATION_KEY;
-import static org.apache.dubbo.common.constants.CommonConstants.VERSION_KEY;
 import static org.apache.dubbo.common.constants.CommonConstants.SIDE_KEY;
-import static org.apache.dubbo.common.constants.CommonConstants.CONSUMER_SIDE;
+import static org.apache.dubbo.common.constants.CommonConstants.VERSION_KEY;
 
 public class InstanceAddressURL extends URL {
     private ServiceInstance instance;
@@ -40,8 +42,7 @@ public class InstanceAddressURL extends URL {
     private volatile transient Map<String, Number> numbers;
     private volatile transient Map<String, Map<String, Number>> methodNumbers;
 
-    public InstanceAddressURL() {
-    }
+    public InstanceAddressURL() {}
 
     public InstanceAddressURL(
             ServiceInstance instance,
@@ -49,8 +50,6 @@ public class InstanceAddressURL extends URL {
     ) {
         this.instance = instance;
         this.metadataInfo = metadataInfo;
-        this.host = instance.getHost();
-        this.port = instance.getPort();
     }
 
     public ServiceInstance getInstance() {
@@ -63,30 +62,30 @@ public class InstanceAddressURL extends URL {
 
     @Override
     public String getServiceInterface() {
-        return RpcContext.getContext().getInterfaceName();
+        return RpcContext.getServiceContext().getInterfaceName();
     }
 
     public String getGroup() {
-        return RpcContext.getContext().getGroup();
+        return RpcContext.getServiceContext().getGroup();
     }
 
     public String getVersion() {
-        return RpcContext.getContext().getVersion();
+        return RpcContext.getServiceContext().getVersion();
     }
 
     @Override
     public String getProtocol() {
-        return RpcContext.getContext().getProtocol();
+        return RpcContext.getServiceContext().getProtocol();
     }
 
     @Override
     public String getProtocolServiceKey() {
-        return RpcContext.getContext().getProtocolServiceKey();
+        return RpcContext.getServiceContext().getProtocolServiceKey();
     }
 
     @Override
     public String getServiceKey() {
-        return RpcContext.getContext().getServiceKey();
+        return RpcContext.getServiceContext().getServiceKey();
     }
 
     @Override
@@ -95,8 +94,26 @@ public class InstanceAddressURL extends URL {
     }
 
     @Override
+    public String getHost() {
+        return instance.getHost();
+    }
+
+    @Override
+    public int getPort() {
+        return instance.getPort();
+    }
+
+    @Override
+    public String getIp() {
+        return instance.getHost();
+    }
+
+    @Override
     public String getPath() {
         MetadataInfo.ServiceInfo serviceInfo = metadataInfo.getServiceInfo(getProtocolServiceKey());
+        if (serviceInfo == null) {
+            return getServiceInterface();
+        }
         return serviceInfo.getPath();
     }
 
@@ -293,6 +310,35 @@ public class InstanceAddressURL extends URL {
     }
 
     @Override
+    public String getAnyMethodParameter(String key) {
+        String suffix = "." + key;
+        for (String fullKey : instance.getMetadata().keySet()) {
+            if (fullKey.endsWith(suffix)) {
+                return getParameter(fullKey);
+            }
+        }
+        String protocolServiceKey = getProtocolServiceKey();
+        if (StringUtils.isNotEmpty(protocolServiceKey)) {
+            for (String fullKey : metadataInfo.getServiceInfo(protocolServiceKey).getParams().keySet()) {
+                if (fullKey.endsWith(suffix)) {
+                    return getParameter(fullKey);
+                }
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public URLParam getUrlParam() {
+        throw new UnsupportedOperationException("URLParam is replaced with MetadataInfo in instance url");
+    }
+
+    @Override
+    public URLAddress getUrlAddress() {
+        throw new UnsupportedOperationException("URLAddress is replaced with ServiceInstance in instance url");
+    }
+
+    @Override
     protected Map<String, Number> getServiceNumbers(String protocolServiceKey) {
         return getServiceInfo(protocolServiceKey).getNumbers();
     }
@@ -362,14 +408,6 @@ public class InstanceAddressURL extends URL {
         return getInstance().hashCode();
     }
 
-    public String getServiceString(String service) {
-        MetadataInfo.ServiceInfo serviceInfo = metadataInfo.getServiceInfo(service);
-        if (serviceInfo == null) {
-            return instance.toString();
-        }
-        return instance.toString() + serviceInfo.toString();
-    }
-
     @Override
     public String toString() {
         if (instance == null) {
@@ -378,6 +416,12 @@ public class InstanceAddressURL extends URL {
         if (metadataInfo == null) {
             return instance.toString();
         }
-        return instance.toString() + metadataInfo.toString();
+
+        String protocolServiceKey = RpcContext.getServiceContext().getProtocolServiceKey();
+        if (StringUtils.isNotEmpty(protocolServiceKey)) {
+            return instance.toString() + ", " + metadataInfo.getServiceString(protocolServiceKey);
+        }
+
+        return instance.toString();
     }
 }

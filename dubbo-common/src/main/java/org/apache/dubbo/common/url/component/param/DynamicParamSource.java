@@ -14,22 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.dubbo.metadata;
+package org.apache.dubbo.common.url.component.param;
 
-public interface MetadataChangeListener {
-    /**
-     * Call when metadata in provider side update <p/>
-     * Used to notify consumer to update metadata of ServiceInstance
-     *
-     * @param metadata latest metadata
-     */
-    void onEvent(String metadata);
+import org.apache.dubbo.common.extension.SPI;
 
-    /**
-     * Echo test
-     * Used to check consumer still online
-     */
-    default String echo(String msg) {
-        return msg;
-    }
+import java.util.List;
+
+@SPI
+public interface DynamicParamSource {
+
+    void init(List<String> keys, List<ParamValue> values);
 }

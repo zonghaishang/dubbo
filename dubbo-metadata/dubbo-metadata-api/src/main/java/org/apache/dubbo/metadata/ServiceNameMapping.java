@@ -22,17 +22,19 @@ import org.apache.dubbo.common.extension.SPI;
 import java.util.Set;
 
 import static org.apache.dubbo.common.constants.CommonConstants.CONFIG_MAPPING_TYPE;
+import static org.apache.dubbo.common.constants.CommonConstants.METADATA_MAPPING_TYPE;
 import static org.apache.dubbo.common.extension.ExtensionLoader.getExtensionLoader;
 import static org.apache.dubbo.common.utils.StringUtils.SLASH;
-import static org.apache.dubbo.metadata.DynamicConfigurationServiceNameMapping.DEFAULT_MAPPING_GROUP;
 
 /**
  * The interface for Dubbo service name Mapping
  *
  * @since 2.7.5
  */
-@SPI("config")
+@SPI("metadata")
 public interface ServiceNameMapping {
+
+    String DEFAULT_MAPPING_GROUP = "mapping";
 
     /**
      * Map the specified Dubbo service interface, group, version and protocol to current Dubbo service name
@@ -50,14 +52,21 @@ public interface ServiceNameMapping {
      * Get the default extension of {@link ServiceNameMapping}
      *
      * @return non-null {@link ServiceNameMapping}
-     * @see DynamicConfigurationServiceNameMapping
      */
     static ServiceNameMapping getDefaultExtension() {
         return getExtensionLoader(ServiceNameMapping.class).getDefaultExtension();
     }
 
+    static String buildMappingKey(URL url) {
+        return buildGroup(url.getServiceInterface());
+    }
+
+    static String toStringKeys(Set<String> serviceNames) {
+        return serviceNames.toString();
+    }
+
     static ServiceNameMapping getExtension(String name) {
-        return getExtensionLoader(ServiceNameMapping.class).getExtension(name == null ? CONFIG_MAPPING_TYPE : name);
+        return getExtensionLoader(ServiceNameMapping.class).getExtension(name == null ? METADATA_MAPPING_TYPE : name);
     }
 
     static String buildGroup(String serviceInterface) {
@@ -69,4 +78,17 @@ public interface ServiceNameMapping {
         //        return groupBuilder.toString();
         return DEFAULT_MAPPING_GROUP + SLASH + serviceInterface;
     }
+
+    /**
+     * 1.developer explicitly specifies the application name this interface belongs to
+     * 2.check Interface-App mapping
+     */
+    Set<String> getServices(URL subscribedURL);
+
+    /**
+     * 1.developer explicitly specifies the application name this interface belongs to
+     * 2.check Interface-App mapping
+     * 3.use the services specified in registry url.
+     */
+    Set<String> getAndListenServices(URL registryURL, URL subscribedURL, MappingListener listener);
 }

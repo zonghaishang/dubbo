@@ -83,12 +83,8 @@ public class MetadataReportInstance {
         }
     }
 
-    // only for unit test
-    @Deprecated
-    public static void destroy() {
-        if (init.get()) {
-            metadataReports.clear();
-            init.compareAndSet(true, false);
-        }
+    public static void reset() {
+        metadataReports.clear();
+        init.set(false);
     }
 }

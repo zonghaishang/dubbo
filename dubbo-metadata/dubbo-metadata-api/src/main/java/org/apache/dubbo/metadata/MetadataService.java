@@ -18,6 +18,7 @@ package org.apache.dubbo.metadata;
 
 import org.apache.dubbo.common.URL;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -32,7 +33,7 @@ import static java.util.stream.StreamSupport.stream;
 import static org.apache.dubbo.common.URL.buildKey;
 
 /**
- * A framework interface of Dubbo Metadata Service defines the contract of Dubbo Services registration and subscription
+ * A framework interface of Dubbo Metadata Service defines the contract of Dubbo Services registartion and subscription
  * between Dubbo service providers and its consumers. The implementation will be exported as a normal Dubbo service that
  * the clients would subscribe, whose version comes from the {@link #version()} method and group gets from
  * {@link #serviceName()}, that means, The different Dubbo service(application) will export the different
@@ -162,6 +163,10 @@ public interface MetadataService {
      */
     SortedSet<String> getExportedURLs(String serviceInterface, String group, String version, String protocol);
 
+    default Set<URL> getExportedServiceURLs() {
+        return Collections.emptySet();
+    }
+
     /**
      * Interface definition.
      *
@@ -235,10 +240,10 @@ public interface MetadataService {
      * Used for consumer to get Service Instance Metadata
      * if Registry is unsupported with publishing metadata
      *
-     * @param metadata {@link Map} of provider Service Instance Metadata
+     * @param instanceMetadata {@link Map} of provider Service Instance Metadata
      * @since 3.0
      */
-    default void exportServiceDiscoveryMetadata(String metadata) {
+    default void exportInstanceMetadata(String instanceMetadata) {
         throw new UnsupportedOperationException("This operation is not supported for consumer.");
     }
 
@@ -248,10 +253,10 @@ public interface MetadataService {
      * Used for consumer to get Service Instance Metadata
      * if Registry is unsupported with publishing metadata
      *
-     * @return {@link Map} of {@link MetadataChangeListener}
+     * @return {@link Map} of {@link InstanceMetadataChangedListener}
      * @since 3.0
      */
-    default Map<String, MetadataChangeListener> getMetadataChangeListenerMap() {
+    default Map<String, InstanceMetadataChangedListener> getInstanceMetadataChangedListenerMap() {
         throw new UnsupportedOperationException("This operation is not supported for consumer.");
     }
 
@@ -263,11 +268,11 @@ public interface MetadataService {
      * if Registry is unsupported with publishing metadata
      *
      * @param consumerId consumerId
-     * @param listener   {@link MetadataChangeListener} used to notify event
+     * @param listener   {@link InstanceMetadataChangedListener} used to notify event
      * @return {@link Map} of provider Service Instance Metadata
      * @since 3.0
      */
-    default String getAndListenServiceDiscoveryMetadata(String consumerId, MetadataChangeListener listener) {
+    default String getAndListenInstanceMetadata(String consumerId, InstanceMetadataChangedListener listener) {
         throw new UnsupportedOperationException("This operation is not supported for consumer.");
     }
 }

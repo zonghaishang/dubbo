@@ -176,9 +176,7 @@ public class ApplicationConfig extends AbstractConfig {
 
     public void setName(String name) {
         this.name = name;
-        if (StringUtils.isEmpty(id)) {
-            id = name;
-        }
+        //this.updateIdIfAbsent(name);
     }
 
     @Parameter(key = "application.version")
@@ -478,11 +476,14 @@ public class ApplicationConfig extends AbstractConfig {
                 Map<String, String> extraParameters = adapter.getExtraAttributes(inputParameters);
                 if (CollectionUtils.isNotEmptyMap(extraParameters)) {
                     extraParameters.forEach((key, value) -> {
-                        String prefix = this.getPrefix() + ".";
-                        if (key.startsWith(prefix)) {
-                            key = key.substring(prefix.length());
+                        for (String prefix : this.getPrefixes()) {
+                            prefix += ".";
+                            if (key.startsWith(prefix)) {
+                                key = key.substring(prefix.length());
+                            }
+                            parameters.put(key, value);
+                            break;
                         }
-                        parameters.put(key, value);
                     });
                 }
             }

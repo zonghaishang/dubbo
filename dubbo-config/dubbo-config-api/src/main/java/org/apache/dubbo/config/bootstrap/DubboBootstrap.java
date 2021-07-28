@@ -27,7 +27,6 @@ import org.apache.dubbo.common.extension.ExtensionLoader;
 import org.apache.dubbo.common.lang.ShutdownHookCallbacks;
 import org.apache.dubbo.common.logger.Logger;
 import org.apache.dubbo.common.logger.LoggerFactory;
-import org.apache.dubbo.common.threadpool.concurrent.ScheduledCompletableFuture;
 import org.apache.dubbo.common.threadpool.manager.ExecutorRepository;
 import org.apache.dubbo.common.utils.ArrayUtils;
 import org.apache.dubbo.common.utils.CollectionUtils;
@@ -69,7 +68,6 @@ import org.apache.dubbo.metadata.report.MetadataReportInstance;
 import org.apache.dubbo.metadata.report.support.AbstractMetadataReportFactory;
 import org.apache.dubbo.registry.client.DefaultServiceInstance;
 import org.apache.dubbo.registry.client.ServiceInstance;
-import org.apache.dubbo.registry.client.ServiceInstanceCustomizer;
 import org.apache.dubbo.registry.client.metadata.MetadataUtils;
 import org.apache.dubbo.registry.client.metadata.ServiceInstanceMetadataUtils;
 import org.apache.dubbo.registry.client.metadata.store.InMemoryWritableMetadataService;
@@ -87,11 +85,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.SortedSet;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Condition;
@@ -99,12 +94,13 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static org.apache.dubbo.common.config.ConfigurationUtils.parseProperties;
-import static org.apache.dubbo.common.config.configcenter.DynamicConfiguration.getDynamicConfiguration;
+import static org.apache.dubbo.common.config.configcenter.DynamicConfigurationFactory.getDynamicConfigurationFactory;
 import static org.apache.dubbo.common.constants.CommonConstants.DEFAULT_METADATA_STORAGE_TYPE;
 import static org.apache.dubbo.common.constants.CommonConstants.DUBBO;
 import static org.apache.dubbo.common.constants.CommonConstants.REGISTRY_SPLIT_PATTERN;
@@ -153,8 +149,6 @@ public class DubboBootstrap {
 
     private final AtomicBoolean awaited = new AtomicBoolean(false);
 
-    private volatile BootstrapTakeoverMode takeoverMode = BootstrapTakeoverMode.AUTO;
-
     private final Lock lock = new ReentrantLock();
 
     private final Condition condition = lock.newCondition();
@@ -170,10 +164,6 @@ public class DubboBootstrap {
     private final Environment environment;
 
     private ReferenceConfigCache cache;
-
-    private volatile boolean exportAsync;
-
-    private volatile boolean referAsync;
 
     private AtomicBoolean initialized = new AtomicBoolean(false);
 
@@ -196,6 +186,10 @@ public class DubboBootstrap {
     private final List<CompletableFuture<?>> asyncExportingFutures = new ArrayList<>();
 
     private final List<CompletableFuture<?>> asyncReferringFutures = new ArrayList<>();
+
+    private boolean asyncExportFinish = true;
+
+    private boolean asyncReferFinish = true;
 
     private static boolean ignoreConfigState;
 
@@ -549,25 +543,10 @@ public class DubboBootstrap {
         return cache;
     }
 
-    public DubboBootstrap exportAsync() {
-        this.exportAsync = true;
-        return this;
-    }
-
-    public DubboBootstrap referAsync() {
-        this.referAsync = true;
-        return this;
-    }
-
-    @Deprecated
-    public void init() {
-        initialize();
-    }
-
     /**
      * Initialize
      */
-    public void initialize() {
+    public synchronized void initialize() {
         if (!initialized.compareAndSet(false, true)) {
             return;
         }
@@ -944,10 +923,6 @@ public class DubboBootstrap {
         String protocol = registryConfig.getProtocol();
         Integer port = registryConfig.getPort();
         String id = "metadata-center-" + protocol + "-" + port;
-        if (configManager.getMetadataConfig(id) != null) {
-            return null;
-        }
-
         MetadataReportConfig metadataReportConfig = new MetadataReportConfig();
         metadataReportConfig.setId(id);
         if (metadataReportConfig.getParameters() == null) {
@@ -1136,13 +1111,20 @@ public class DubboBootstrap {
             }
 
             referServices();
-            if (asyncExportingFutures.size() > 0 || asyncReferringFutures.size() > 0) {
+
+            // wait async export / refer finish if needed
+            awaitFinish();
+
+            if (isExportBackground() || isReferBackground()) {
                 new Thread(() -> {
-                    try {
-                        this.awaitFinish();
-                    } catch (Exception e) {
-                        logger.warn(NAME + " asynchronous export / refer occurred an exception.");
+                    while (!asyncExportFinish || !asyncReferFinish) {
+                        try {
+                            Thread.sleep(1000);
+                        } catch (InterruptedException e) {
+                            logger.error(NAME + " waiting async export / refer occurred and error.", e);
+                        }
                     }
+
                     startup.set(true);
                     if (logger.isInfoEnabled()) {
                         logger.info(NAME + " is ready.");
@@ -1194,25 +1176,79 @@ public class DubboBootstrap {
         return this;
     }
 
-    public DubboBootstrap awaitFinish() throws Exception {
-        logger.info(NAME + " waiting services exporting / referring asynchronously...");
-
+    private void waitAsyncExportIfNeeded() {
         if (asyncExportingFutures.size() > 0) {
+            asyncExportFinish = false;
+            if (isExportBackground()) {
+                new Thread(this::waitExportFinish).start();
+            } else {
+                waitExportFinish();
+            }
+        }
+    }
+
+    private boolean isExportBackground() {
+        List<Boolean> list = configManager.getProviders()
+            .stream()
+            .map(ProviderConfig::getExportBackground)
+            .filter(k -> k != null && k)
+            .collect(Collectors.toList());
+
+        return CollectionUtils.isNotEmpty(list);
+    }
+
+    private void waitExportFinish() {
+        try {
+            logger.info(NAME + " waiting services exporting asynchronously...");
             CompletableFuture<?> future = CompletableFuture.allOf(asyncExportingFutures.toArray(new CompletableFuture[0]));
             future.get();
+        } catch (Exception e) {
+            logger.warn(NAME + " asynchronous export occurred an exception.");
+        } finally {
+            executorRepository.shutdownServiceExportExecutor();
+            logger.info(NAME + " asynchronous export finished.");
+            asyncExportFinish = true;
         }
+    }
 
+    private void waitAsyncReferIfNeeded() {
         if (asyncReferringFutures.size() > 0) {
+            asyncReferFinish = false;
+            if (isReferBackground()) {
+                new Thread(this::waitReferFinish).start();
+            } else {
+                waitReferFinish();
+            }
+        }
+    }
+
+    private boolean isReferBackground() {
+        List<Boolean> list = configManager.getConsumers()
+            .stream()
+            .map(ConsumerConfig::getReferBackground)
+            .filter(k -> k != null && k)
+            .collect(Collectors.toList());
+
+        return CollectionUtils.isNotEmpty(list);
+    }
+
+    private void waitReferFinish() {
+        try {
+            logger.info(NAME + " waiting services referring asynchronously...");
             CompletableFuture<?> future = CompletableFuture.allOf(asyncReferringFutures.toArray(new CompletableFuture[0]));
             future.get();
+        } catch (Exception e) {
+            logger.warn(NAME + " asynchronous refer occurred an exception.");
+        } finally {
+            executorRepository.shutdownServiceExportExecutor();
+            logger.info(NAME + " asynchronous refer finished.");
+            asyncReferFinish = true;
         }
+    }
 
-        logger.info("Service asynchronous export / refer finished.");
-
-        // release the resources.
-        logger.info("Shutting down the export-refer executor.");
-        executorRepository.shutdownExportReferExecutor();
-
+    public DubboBootstrap awaitFinish() {
+        waitAsyncExportIfNeeded();
+        waitAsyncReferIfNeeded();
         return this;
     }
 
@@ -1296,6 +1332,19 @@ public class DubboBootstrap {
     }
 
     /**
+     * Get the instance of {@link DynamicConfiguration} by the specified connection {@link URL} of config-center
+     *
+     * @param connectionURL of config-center
+     * @return non-null
+     * @since 2.7.5
+     */
+    private DynamicConfiguration getDynamicConfiguration(URL connectionURL) {
+        String protocol = connectionURL.getProtocol();
+        DynamicConfigurationFactory factory = getDynamicConfigurationFactory(protocol);
+        return factory.getDynamicConfiguration(connectionURL);
+    }
+
+    /**
      * export {@link MetadataService}
      */
     private void exportMetadataService() {
@@ -1309,37 +1358,35 @@ public class DubboBootstrap {
     }
 
     private void exportServices() {
-        configManager.getServices().forEach(sc -> {
+        for (ServiceConfigBase sc : configManager.getServices()) {
             // TODO, compatible with ServiceConfig.export()
-            ServiceConfig serviceConfig = (ServiceConfig) sc;
+            ServiceConfig<?> serviceConfig = (ServiceConfig<?>) sc;
             serviceConfig.setBootstrap(this);
+            if (!serviceConfig.isRefreshed()) {
+                serviceConfig.refresh();
+            }
 
-            if (exportAsync) {
-                ExecutorService executor = executorRepository.getServiceExporterExecutor();
-                Future<?> future = executor.submit(() -> {
+            if (sc.shouldExportAsync()) {
+                ExecutorService executor = executorRepository.getServiceExportExecutor();
+                CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
                     try {
-                        exportService(serviceConfig);
+                        if (!sc.isExported()) {
+                            sc.export();
+                            exportedServices.add(sc);
+                        }
                     } catch (Throwable t) {
                         logger.error("export async catch error : " + t.getMessage(), t);
                     }
-                });
+                }, executor);
+
                 asyncExportingFutures.add(future);
             } else {
-                exportService(serviceConfig);
+                if (!sc.isExported()) {
+                    sc.export();
+                    exportedServices.add(sc);
+                }
             }
-        });
-    }
-
-    private void exportService(ServiceConfig sc) {
-        if (exportedServices.containsKey(sc.getServiceName())) {
-            throw new IllegalStateException("There are multiple ServiceBean instances with the same service name: [" +
-                    sc.getServiceName() + "], instances: [" +
-                    exportedServices.get(sc.getServiceName()).toString() + ", " +
-                    sc.toString() + "]. Only one service can be exported for the same triple (group, interface, version), " +
-                    "please modify the group or version if you really need to export multiple services of the same interface.");
         }
-        sc.export();
-        exportedServices.put(sc.getServiceName(), sc);
     }
 
     private void unexportServices() {
@@ -1364,15 +1411,23 @@ public class DubboBootstrap {
 
         configManager.getReferences().forEach(rc -> {
             // TODO, compatible with  ReferenceConfig.refer()
-            ReferenceConfig referenceConfig = (ReferenceConfig) rc;
+            ReferenceConfig<?> referenceConfig = (ReferenceConfig<?>) rc;
             referenceConfig.setBootstrap(this);
+            if (!referenceConfig.isRefreshed()) {
+                referenceConfig.refresh();
+            }
 
             if (rc.shouldInit()) {
-                if (referAsync) {
-                    CompletableFuture<Object> future = ScheduledCompletableFuture.submit(
-                            executorRepository.getServiceExporterExecutor(),
-                            () -> cache.get(rc)
-                    );
+                if (rc.shouldReferAsync()) {
+                    ExecutorService executor = executorRepository.getServiceReferExecutor();
+                    CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                        try {
+                            cache.get(rc);
+                        } catch (Throwable t) {
+                            logger.error("refer async catch error : " + t.getMessage(), t);
+                        }
+                    }, executor);
+
                     asyncReferringFutures.add(future);
                 } else {
                     cache.get(rc);
@@ -1396,23 +1451,17 @@ public class DubboBootstrap {
     }
 
     private void registerServiceInstance() {
-        if (CollectionUtils.isEmpty(getServiceDiscoveries())) {
-            return;
-        }
-
         ApplicationConfig application = getApplication();
 
         String serviceName = application.getName();
 
-        URL exportedURL = selectMetadataServiceExportedURL();
+        ServiceInstance serviceInstance = createServiceInstance(serviceName);
 
-        String host = exportedURL.getHost();
-
-        int port = exportedURL.getPort();
-
-        ServiceInstance serviceInstance = createServiceInstance(serviceName, host, port);
-
-        doRegisterServiceInstance(serviceInstance);
+        try {
+            doRegisterServiceInstance(serviceInstance);
+        } catch (Exception e) {
+            logger.error("Register instance error", e);
+        }
 
         // scheduled task for updating Metadata and ServiceInstance
         executorRepository.nextScheduledExecutor().scheduleAtFixedRate(() -> {
@@ -1429,22 +1478,21 @@ public class DubboBootstrap {
     }
 
     private void doRegisterServiceInstance(ServiceInstance serviceInstance) {
-        //FIXME
-        if (logger.isInfoEnabled()) {
-            logger.info("Start publishing metadata to remote center, this only makes sense for applications enabled remote metadata center.");
+        // register instance only when at least one service is exported.
+        if (serviceInstance.getPort() > 0) {
+            publishMetadataToRemote(serviceInstance);
+            logger.info("Start registering instance address to registry.");
+            getServiceDiscoveries().forEach(serviceDiscovery ->
+            {
+                ServiceInstance serviceInstanceForRegistry = new DefaultServiceInstance((DefaultServiceInstance) serviceInstance);
+                calInstanceRevision(serviceDiscovery, serviceInstanceForRegistry);
+                if (logger.isDebugEnabled()) {
+                    logger.info("Start registering instance address to registry" + serviceDiscovery.getUrl() + ", instance " + serviceInstanceForRegistry);
+                }
+                // register metadata
+                serviceDiscovery.register(serviceInstanceForRegistry);
+            });
         }
-        publishMetadataToRemote(serviceInstance);
-
-        logger.info("Start registering instance address to registry.");
-        getServiceDiscoveries().forEach(serviceDiscovery ->
-        {
-            calInstanceRevision(serviceDiscovery, serviceInstance);
-            if (logger.isDebugEnabled()) {
-                logger.debug("Start registering instance address to registry" + serviceDiscovery.getUrl() + ", instance " + serviceInstance);
-            }
-            // register metadata
-            serviceDiscovery.register(serviceInstance);
-        });
     }
 
     private void publishMetadataToRemote(ServiceInstance serviceInstance) {
@@ -1457,29 +1505,6 @@ public class DubboBootstrap {
         remoteMetadataService.publishMetadata(serviceInstance.getServiceName());
     }
 
-    private URL selectMetadataServiceExportedURL() {
-
-        URL selectedURL = null;
-
-        SortedSet<String> urlValues = metadataService.getExportedURLs();
-
-        for (String urlValue : urlValues) {
-            URL url = URL.valueOf(urlValue);
-            if ("rest".equals(url.getProtocol())) { // REST first
-                selectedURL = url;
-                break;
-            } else {
-                selectedURL = url; // If not found, take any one
-            }
-        }
-
-        if (selectedURL == null && CollectionUtils.isNotEmpty(urlValues)) {
-            selectedURL = URL.valueOf(urlValues.iterator().next());
-        }
-
-        return selectedURL;
-    }
-
     private void unregisterServiceInstance() {
         if (serviceInstance != null) {
             getServiceDiscoveries().forEach(serviceDiscovery -> {
@@ -1488,18 +1513,10 @@ public class DubboBootstrap {
         }
     }
 
-    private ServiceInstance createServiceInstance(String serviceName, String host, int port) {
-        this.serviceInstance = new DefaultServiceInstance(serviceName, host, port);
+    private ServiceInstance createServiceInstance(String serviceName) {
+        this.serviceInstance = new DefaultServiceInstance(serviceName);
         setMetadataStorageType(serviceInstance, getMetadataType());
-
-        ExtensionLoader<ServiceInstanceCustomizer> loader =
-                ExtensionLoader.getExtensionLoader(ServiceInstanceCustomizer.class);
-        // FIXME, sort customizer before apply
-        loader.getSupportedExtensionInstances().forEach(customizer -> {
-            // customizes
-            customizer.customize(this.serviceInstance);
-        });
-
+        ServiceInstanceMetadataUtils.customizeInstance(this.serviceInstance);
         return this.serviceInstance;
     }
 
@@ -1653,106 +1670,15 @@ public class DubboBootstrap {
         }
     }
 
-    public ApplicationConfig getApplication() {
+    private ApplicationConfig getApplication() {
         ApplicationConfig application = configManager
                 .getApplication()
                 .orElseGet(() -> {
                     ApplicationConfig applicationConfig = new ApplicationConfig();
-                    configManager.setApplication(applicationConfig);
+                    applicationConfig.refresh();
                     return applicationConfig;
                 });
-
-        application.refresh();
+        configManager.setApplication(application);
         return application;
-    }
-
-    private MonitorConfig getMonitor() {
-        MonitorConfig monitor = configManager
-                .getMonitor()
-                .orElseGet(() -> {
-                    MonitorConfig monitorConfig = new MonitorConfig();
-                    configManager.setMonitor(monitorConfig);
-                    return monitorConfig;
-                });
-
-        monitor.refresh();
-        return monitor;
-    }
-
-    private MetricsConfig getMetrics() {
-        MetricsConfig metrics = configManager
-                .getMetrics()
-                .orElseGet(() -> {
-                    MetricsConfig metricsConfig = new MetricsConfig();
-                    configManager.setMetrics(metricsConfig);
-                    return metricsConfig;
-                });
-        metrics.refresh();
-        return metrics;
-    }
-
-    private ModuleConfig getModule() {
-        ModuleConfig module = configManager
-                .getModule()
-                .orElseGet(() -> {
-                    ModuleConfig moduleConfig = new ModuleConfig();
-                    configManager.setModule(moduleConfig);
-                    return moduleConfig;
-                });
-
-        module.refresh();
-        return module;
-    }
-
-    private SslConfig getSsl() {
-        SslConfig ssl = configManager
-                .getSsl()
-                .orElseGet(() -> {
-                    SslConfig sslConfig = new SslConfig();
-                    configManager.setSsl(sslConfig);
-                    return sslConfig;
-                });
-
-        ssl.refresh();
-        return ssl;
-    }
-
-    public void setReady(boolean ready) {
-        this.ready.set(ready);
-    }
-
-
-    /**
-     * Try reset dubbo status for new instance.
-     * @deprecated  For testing purposes only
-     */
-    @Deprecated
-    public static void reset() {
-        reset(true);
-    }
-
-    /**
-     * Try reset dubbo status for new instance.
-     * @deprecated For testing purposes only
-     */
-    @Deprecated
-    public static void reset(boolean destroy) {
-        DubboShutdownHook.reset();
-        if (destroy) {
-            if (instance != null) {
-                instance.destroy();
-                instance = null;
-            }
-            ApplicationModel.reset();
-            AbstractRegistryFactory.reset();
-            MetadataReportInstance.destroy();
-            AbstractMetadataReportFactory.clear();
-            ExtensionLoader.resetExtensionLoader(DynamicConfigurationFactory.class);
-            ExtensionLoader.resetExtensionLoader(MetadataReportFactory.class);
-            ExtensionLoader.destroyAll();
-        } else {
-            instance = null;
-            ApplicationModel.reset();
-        }
     }
 }

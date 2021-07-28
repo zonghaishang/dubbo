@@ -17,6 +17,7 @@
 package org.apache.dubbo.config;
 
 import org.apache.dubbo.common.URL;
+import org.apache.dubbo.common.url.component.ServiceConfigURL;
 import org.apache.dubbo.common.utils.CollectionUtils;
 import org.apache.dubbo.common.utils.StringUtils;
 import org.apache.dubbo.config.support.Parameter;
@@ -24,8 +25,6 @@ import org.apache.dubbo.config.support.Parameter;
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.apache.dubbo.common.constants.CommonConstants.DUBBO;
-import static org.apache.dubbo.common.constants.CommonConstants.PROPERTIES_CHAR_SEPARATOR;
 import static org.apache.dubbo.common.constants.RemotingConstants.BACKUP_KEY;
 import static org.apache.dubbo.common.utils.PojoUtils.updatePropertyIfAbsent;
 import static org.apache.dubbo.common.utils.StringUtils.isEmpty;
@@ -38,11 +37,6 @@ import static org.apache.dubbo.common.utils.StringUtils.isEmpty;
 public class MetadataReportConfig extends AbstractConfig {
 
     private static final long serialVersionUID = 55233L;
-    /**
-     * the value is : metadata-report
-     */
-    private static final String PREFIX_TAG = StringUtils.camelToSplitName(
-            MetadataReportConfig.class.getSimpleName().substring(0, MetadataReportConfig.class.getSimpleName().length() - 6), PROPERTIES_CHAR_SEPARATOR);
 
     private String protocol;
 
@@ -123,7 +117,7 @@ public class MetadataReportConfig extends AbstractConfig {
         map.putAll(convert(map, null));
         // put the protocol of URL as the "metadata"
         map.put("metadata", url.getProtocol());
-        return new URL("metadata", url.getUsername(), url.getPassword(), url.getHost(),
+        return new ServiceConfigURL("metadata", url.getUsername(), url.getPassword(), url.getHost(),
                 url.getPort(), url.getPath(), map);
 
     }
@@ -240,13 +234,7 @@ public class MetadataReportConfig extends AbstractConfig {
     }
 
     @Override
-    @Parameter(excluded = true)
-    public String getPrefix() {
-        return StringUtils.isNotEmpty(prefix) ? prefix : (DUBBO + "." + PREFIX_TAG);
-    }
-
-    @Override
-    @Parameter(excluded = true)
+    @Parameter(excluded = true, attribute = false)
     public boolean isValid() {
         return StringUtils.isNotEmpty(address);
     }

@@ -17,7 +17,10 @@
 package org.apache.dubbo.registry.client.metadata;
 
 import org.apache.dubbo.common.URL;
+import org.apache.dubbo.common.logger.Logger;
+import org.apache.dubbo.common.logger.LoggerFactory;
 import org.apache.dubbo.common.utils.CollectionUtils;
+import org.apache.dubbo.metadata.AbstractServiceNameMapping;
 import org.apache.dubbo.metadata.MappingListener;
 import org.apache.dubbo.metadata.MetadataService;
 import org.apache.dubbo.metadata.ServiceNameMapping;
@@ -25,15 +28,21 @@ import org.apache.dubbo.metadata.report.MetadataReport;
 import org.apache.dubbo.metadata.report.MetadataReportInstance;
 import org.apache.dubbo.registry.client.RegistryClusterIdentifier;
 
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
-import static java.util.Arrays.asList;
+import static org.apache.dubbo.common.constants.CommonConstants.DEFAULT_KEY;
 import static org.apache.dubbo.rpc.model.ApplicationModel.getName;
 
-public class MetadataServiceNameMapping implements ServiceNameMapping {
-    private static final List<String> IGNORED_SERVICE_INTERFACES = asList(MetadataService.class.getName());
+public class MetadataServiceNameMapping extends AbstractServiceNameMapping {
+
+    private final Logger logger = LoggerFactory.getLogger(getClass());
+
+    private static final List<String> IGNORED_SERVICE_INTERFACES = Collections.singletonList(MetadataService.class.getName());
+
+    private static final int CAS_RETRY_TIMES = 6;
 
     @Override
     public void map(URL url) {
@@ -45,6 +54,19 @@ public class MetadataServiceNameMapping implements ServiceNameMapping {
         String registryCluster = getRegistryCluster(url);
         MetadataReport metadataReport = MetadataReportInstance.getMetadataReport(registryCluster);
         metadataReport.registerServiceAppMapping(ServiceNameMapping.buildGroup(serviceInterface), getName(), url);
+    }
+
+    @Override
+    public Set<String> get(URL url) {
+        Set<String> serviceNames = new LinkedHashSet<>();
+        execute(() -> {
+            String serviceInterface = url.getServiceInterface();
+            String registryCluster = getRegistryCluster(url);
+            MetadataReport metadataReport = MetadataReportInstance.getMetadataReport(registryCluster);
+            Set<String> apps = metadataReport.getServiceAppMapping(serviceInterface, url);
+            serviceNames.addAll(apps);
+        });
+        return serviceNames;
     }
 
     @Override
@@ -68,11 +90,23 @@ public class MetadataServiceNameMapping implements ServiceNameMapping {
 
     protected String getRegistryCluster(URL url) {
         String registryCluster = RegistryClusterIdentifier.getExtension(url).providerKey(url);
-
+        if (registryCluster == null) {
+            registryCluster = DEFAULT_KEY;
+        }
         int i = registryCluster.indexOf(",");
         if (i > 0) {
             registryCluster = registryCluster.substring(0, i);
         }
         return registryCluster;
+    }
+
+    private void execute(Runnable runnable) {
+        try {
+            runnable.run();
+        } catch (Throwable e) {
+            if (logger.isWarnEnabled()) {
+                logger.warn(e.getMessage(), e);
+            }
+        }
     }
 }

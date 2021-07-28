@@ -21,6 +21,9 @@ import org.apache.dubbo.config.support.Parameter;
 import java.util.ArrayList;
 import java.util.Arrays;
 
+import static org.apache.dubbo.common.constants.CommonConstants.EXPORT_BACKGROUND_KEY;
+import static org.apache.dubbo.common.constants.CommonConstants.EXPORT_THREAD_NUM_KEY;
+
 /**
  * The service provider default configuration
  *
@@ -154,15 +157,19 @@ public class ProviderConfig extends AbstractServiceConfig {
      */
     private Integer wait;
 
+    /**
+     * Thread num for asynchronous export pool size
+     */
+    private Integer exportThreadNum;
+
+    /**
+     * Whether export should run in background or not
+     */
+    private Boolean exportBackground;
+
     @Deprecated
     public void setProtocol(String protocol) {
         this.protocols = new ArrayList<>(Arrays.asList(new ProtocolConfig(protocol)));
-    }
-
-    @Override
-    @Parameter(excluded = true)
-    public Boolean isDefault() {
-        return isDefault;
     }
 
     @Parameter(excluded = true)
@@ -185,7 +192,7 @@ public class ProviderConfig extends AbstractServiceConfig {
     }
 
     @Deprecated
-    @Parameter(excluded = true)
+    @Parameter(excluded = true, attribute = false)
     public String getPath() {
         return getContextpath();
     }
@@ -390,7 +397,7 @@ public class ProviderConfig extends AbstractServiceConfig {
      * @deprecated {@link #getDispatcher()}
      */
     @Deprecated
-    @Parameter(excluded = true)
+    @Parameter(excluded = true, attribute = false)
     public String getDispather() {
         return getDispatcher();
     }
@@ -429,6 +436,24 @@ public class ProviderConfig extends AbstractServiceConfig {
         this.wait = wait;
     }
 
+    @Parameter(key = EXPORT_THREAD_NUM_KEY, excluded = true)
+    public Integer getExportThreadNum() {
+        return exportThreadNum;
+    }
+
+    public void setExportThreadNum(Integer exportThreadNum) {
+        this.exportThreadNum = exportThreadNum;
+    }
+
+    @Parameter(key = EXPORT_BACKGROUND_KEY, excluded = true)
+    public Boolean getExportBackground() {
+        return exportBackground;
+    }
+
+    public void setExportBackground(Boolean exportBackground) {
+        this.exportBackground = exportBackground;
+    }
+
     @Override
     public String toString() {
         final StringBuilder sb = new StringBuilder("ProviderConfig{");
@@ -455,7 +480,7 @@ public class ProviderConfig extends AbstractServiceConfig {
         sb.append(", telnet='").append(telnet).append('\'');
         sb.append(", prompt='").append(prompt).append('\'');
         sb.append(", status='").append(status).append('\'');
-        sb.append(", wait=").append(wait).append('\'');
+        sb.append(", wait=").append(wait);
         sb.append(", isDefault=").append(isDefault);
         sb.append('}');
         return sb.toString();

@@ -514,6 +514,13 @@ public class FailoverMetadataReport extends StrategyMetadataReport {
     }
 
     @Override
+    public void destroy() {
+        this.proxyReports.forEach(holder -> {
+            holder.report.destroy();
+        });
+    }
+
+    @Override
     public List<String> getSubscribedURLs(SubscriberMetadataIdentifier subscriberMetadataIdentifier) {
         /**
          * Support local region or datacenter to read first,

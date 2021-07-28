@@ -61,11 +61,10 @@ public class NacosNamingServiceUtils {
      */
     public static Instance toInstance(ServiceInstance serviceInstance) {
         Instance instance = new Instance();
-        instance.setInstanceId(serviceInstance.getId());
         instance.setServiceName(serviceInstance.getServiceName());
         instance.setIp(serviceInstance.getHost());
         instance.setPort(serviceInstance.getPort());
-        instance.setMetadata(serviceInstance.getMetadata());
+        instance.setMetadata(serviceInstance.getSortedMetadata());
         instance.setEnabled(serviceInstance.isEnabled());
         instance.setHealthy(serviceInstance.isHealthy());
         return instance;
@@ -79,8 +78,7 @@ public class NacosNamingServiceUtils {
      * @since 2.7.5
      */
     public static ServiceInstance toServiceInstance(Instance instance) {
-        DefaultServiceInstance serviceInstance = new DefaultServiceInstance(instance.getInstanceId(),
-                NamingUtils.getServiceName(instance.getServiceName()), instance.getIp(), instance.getPort());
+        DefaultServiceInstance serviceInstance = new DefaultServiceInstance(NamingUtils.getServiceName(instance.getServiceName()), instance.getIp(), instance.getPort());
         serviceInstance.setMetadata(instance.getMetadata());
         serviceInstance.setEnabled(instance.isEnabled());
         serviceInstance.setHealthy(instance.isHealthy());
@@ -129,13 +127,13 @@ public class NacosNamingServiceUtils {
     private static void setServerAddr(URL url, Properties properties) {
         StringBuilder serverAddrBuilder =
                 new StringBuilder(url.getHost()) // Host
-                        .append(":")
+                        .append(':')
                         .append(url.getPort()); // Port
 
         // Append backup parameter as other servers
         String backup = url.getParameter(BACKUP_KEY);
         if (backup != null) {
-            serverAddrBuilder.append(",").append(backup);
+            serverAddrBuilder.append(',').append(backup);
         }
 
         String serverAddr = serverAddrBuilder.toString();

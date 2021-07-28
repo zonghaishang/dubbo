@@ -249,7 +249,6 @@ public class ConsulServiceDiscovery extends AbstractServiceDiscovery implements 
                 .map(HealthService::getService)
                 .map(service -> {
                     ServiceInstance instance = new DefaultServiceInstance(
-                            service.getId(),
                             service.getService(),
                             service.getAddress(),
                             service.getPort());

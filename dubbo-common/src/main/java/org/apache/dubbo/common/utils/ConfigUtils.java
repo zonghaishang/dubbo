@@ -16,17 +16,23 @@
  */
 package org.apache.dubbo.common.utils;
 
+import org.apache.dubbo.common.config.Configuration;
+import org.apache.dubbo.common.config.InmemoryConfiguration;
 import org.apache.dubbo.common.constants.CommonConstants;
 import org.apache.dubbo.common.extension.ExtensionLoader;
 import org.apache.dubbo.common.logger.Logger;
 import org.apache.dubbo.common.logger.LoggerFactory;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.lang.management.ManagementFactory;
 import java.lang.management.RuntimeMXBean;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Map;
@@ -124,6 +130,10 @@ public class ConfigUtils {
     }
 
     public static String replaceProperty(String expression, Map<String, String> params) {
+        return replaceProperty(expression, new InmemoryConfiguration(params));
+    }
+
+    public static String replaceProperty(String expression, Configuration configuration) {
         if (expression == null || expression.length() == 0 || expression.indexOf('$') < 0) {
             return expression;
         }
@@ -132,11 +142,13 @@ public class ConfigUtils {
         while (matcher.find()) {
             String key = matcher.group(1);
             String value = System.getProperty(key);
-            if (value == null && params != null) {
-                value = params.get(key);
+            if (value == null && configuration != null) {
+                Object val = configuration.getProperty(key);
+                value = (val != null) ? val.toString() : null;
             }
             if (value == null) {
-                value = "";
+                // maybe not placeholders, use origin express
+                value = matcher.group();
             }
             matcher.appendReplacement(sb, Matcher.quoteReplacement(value));
         }
@@ -294,6 +306,49 @@ public class ConfigUtils {
         }
 
         return properties;
+    }
+
+    public static String loadMigrationRule(String fileName) {
+        String rawRule = "";
+        if (checkFileNameExist(fileName)) {
+            try {
+                try (FileInputStream input = new FileInputStream(fileName)) {
+                    rawRule = readString(input);
+                }
+            } catch (Throwable e) {
+                logger.warn("Failed to load " + fileName + " file from " + fileName + "(ignore this file): " + e.getMessage(), e);
+            }
+            return rawRule;
+        }
+
+        try {
+            InputStream is = ClassUtils.getClassLoader().getResourceAsStream(fileName);
+            if (is != null) {
+                rawRule = readString(is);
+            }
+        } catch (Throwable e) {
+            logger.warn("Failed to load " + fileName + " file from " + fileName + "(ignore this file): " + e.getMessage(), e);
+        }
+        return rawRule;
+    }
+
+    private static String readString(InputStream is) {
+        StringBuilder stringBuilder = new StringBuilder();
+        char[] buffer = new char[10];
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(is))){
+            int n;
+            while ((n = reader.read(buffer)) != -1) {
+                if (n < 10) {
+                    buffer = Arrays.copyOf(buffer, n);
+                }
+                stringBuilder.append(String.valueOf(buffer));
+                buffer = new char[10];
+            }
+        } catch (IOException e) {
+            logger.error("Read migration file error.", e);
+        }
+
+        return stringBuilder.toString();
     }
 
     /**

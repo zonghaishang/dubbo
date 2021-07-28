@@ -16,10 +16,14 @@
  */
 package org.apache.dubbo.config;
 
-import org.apache.dubbo.common.constants.CommonConstants;
+import org.apache.dubbo.common.config.Environment;
+import org.apache.dubbo.common.config.InmemoryConfiguration;
+import org.apache.dubbo.common.utils.ClassUtils;
+import org.apache.dubbo.common.utils.MethodUtils;
 import org.apache.dubbo.common.utils.StringUtils;
 import org.apache.dubbo.config.annotation.Method;
 import org.apache.dubbo.config.support.Parameter;
+import org.apache.dubbo.rpc.model.ApplicationModel;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -117,19 +121,25 @@ public class MethodConfig extends AbstractMethodConfig {
     private List<ArgumentConfig> arguments;
 
     /**
+     * TODO remove service and serviceId
      * These properties come from MethodConfig's parent Config module, they will neither be collected directly from xml or API nor be delivered to url
      */
     private String service;
     private String serviceId;
 
-    @Parameter(excluded = true)
-    public String getName() {
-        return name;
-    }
+    /**
+     * The preferred prefix of parent
+     */
+    private String parentPrefix;
+
 
     public MethodConfig() {
     }
 
+    /**
+     * TODO remove this construct, the callback method processing logic needs to rely on Spring context
+     */
+    @Deprecated
     public MethodConfig(Method method) {
         appendAnnotation(Method.class, method);
 
@@ -169,6 +179,12 @@ public class MethodConfig extends AbstractMethodConfig {
         }
     }
 
+    /**
+     * TODO remove constructMethodConfig
+     * @param methods
+     * @return
+     */
+    @Deprecated
     public static List<MethodConfig> constructMethodConfig(Method[] methods) {
         if (methods != null && methods.length != 0) {
             List<MethodConfig> methodConfigs = new ArrayList<MethodConfig>(methods.length);
@@ -179,6 +195,91 @@ public class MethodConfig extends AbstractMethodConfig {
             return methodConfigs;
         }
         return Collections.emptyList();
+    }
+
+    /**
+     * Get method prefixes
+     * @return
+     */
+    @Override
+    @Parameter(excluded = true, attribute = false)
+    public List<String> getPrefixes() {
+        // parent prefix + method name
+        if (parentPrefix != null) {
+            List<String> prefixes = new ArrayList<>();
+            prefixes.add(parentPrefix + "." +this.getName());
+            return prefixes;
+        } else {
+            throw new IllegalStateException("The parent prefix of MethodConfig is null");
+        }
+    }
+
+    @Override
+    protected void processExtraRefresh(String preferredPrefix, InmemoryConfiguration subPropsConfiguration) {
+        // refresh ArgumentConfigs
+        if (this.getArguments() != null && this.getArguments().size() > 0) {
+            for (ArgumentConfig argument : this.getArguments()) {
+                refreshArgument(argument, subPropsConfiguration);
+            }
+        }
+    }
+
+    private void refreshArgument(ArgumentConfig argument, InmemoryConfiguration subPropsConfiguration) {
+        if (argument.getIndex() != null && argument.getIndex() >= 0) {
+            String prefix = argument.getIndex() + ".";
+            Environment environment = ApplicationModel.getEnvironment();
+            java.lang.reflect.Method[] methods = argument.getClass().getMethods();
+            for (java.lang.reflect.Method method : methods) {
+                if (MethodUtils.isSetter(method)) {
+                    String propertyName = extractPropertyName(method.getName());
+                    // ignore attributes: 'index' / 'type'
+                    if (StringUtils.isEquals(propertyName, "index") ||
+                        StringUtils.isEquals(propertyName, "type")) {
+                        continue;
+                    }
+                    // convert camelCase/snake_case to kebab-case
+                    String kebabPropertyName = prefix + StringUtils.convertToSplitName(propertyName, "-");
+
+                    try {
+                        String value = StringUtils.trim(subPropsConfiguration.getString(kebabPropertyName));
+                        if (StringUtils.hasText(value) && ClassUtils.isTypeMatch(method.getParameterTypes()[0], value)) {
+                            value = environment.resolvePlaceholders(value);
+                            method.invoke(argument, ClassUtils.convertPrimitive(method.getParameterTypes()[0], value));
+                        }
+                    } catch (Exception e) {
+                        logger.info("Failed to override the property " + method.getName() + " in " +
+                            this.getClass().getSimpleName() +
+                            ", please make sure every property has getter/setter method provided.");
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Set default field values of MethodConfig.
+     *
+     * @see org.apache.dubbo.config.annotation.Method
+     */
+    @Override
+    protected void checkDefault() {
+        super.checkDefault();
+
+        // set default field values
+        // org.apache.dubbo.config.annotation.Method.isReturn() default true;
+        if (isReturn() == null) {
+            setReturn(true);
+        }
+
+        // org.apache.dubbo.config.annotation.Method.sent() default true;
+        if (getSent() == null) {
+            setSent(true);
+        }
+    }
+
+    @Parameter(excluded = true)
+    public String getName() {
+        return name;
     }
 
     public void setName(String name) {
@@ -313,7 +414,7 @@ public class MethodConfig extends AbstractMethodConfig {
         this.isReturn = isReturn;
     }
 
-    @Parameter(excluded = true)
+    @Parameter(excluded = true, attribute = false)
     public String getService() {
         return service;
     }
@@ -322,7 +423,7 @@ public class MethodConfig extends AbstractMethodConfig {
         this.service = service;
     }
 
-    @Parameter(excluded = true)
+    @Parameter(excluded = true, attribute = false)
     public String getServiceId() {
         return serviceId;
     }
@@ -331,16 +432,19 @@ public class MethodConfig extends AbstractMethodConfig {
         this.serviceId = serviceId;
     }
 
-    /**
-     * service and name must not be null.
-     *
-     * @return
-     */
-    @Override
-    @Parameter(excluded = true)
-    public String getPrefix() {
-        return CommonConstants.DUBBO + "." + service
-                + (StringUtils.isEmpty(serviceId) ? "" : ("." + serviceId))
-                + "." + getName();
+    public void setParentPrefix(String parentPrefix) {
+        this.parentPrefix = parentPrefix;
+    }
+
+    @Parameter(excluded = true, attribute = false)
+    public String getParentPrefix() {
+        return parentPrefix;
+    }
+
+    public void addArgument(ArgumentConfig argumentConfig) {
+        if (arguments == null) {
+            arguments = new ArrayList<>();
+        }
+        arguments.add(argumentConfig);
     }
 }

@@ -43,6 +43,10 @@ public interface CommonConstants {
 
     String DEFAULT_DUBBO_PROPERTIES = "dubbo.properties";
 
+    String DUBBO_MIGRATION_KEY = "dubbo.migration.file";
+
+    String DEFAULT_DUBBO_MIGRATION_FILE = "dubbo-migration.yaml";
+
     String ANY_VALUE = "*";
 
     /**
@@ -138,7 +142,7 @@ public interface CommonConstants {
 
     String GROUP_CHAR_SEPARATOR = ":";
 
-    String HIDDEN_KEY_PREFIX = ".";
+    String HIDE_KEY_PREFIX = ".";
 
     String DOT_REGEX = "\\.";
 
@@ -412,7 +416,33 @@ public interface CommonConstants {
 
     String DUBBO_MONITOR_ADDRESS = "dubbo.monitor.address";
 
-    String DISPATHER = "dispather";
+    String UTF8ENCODE = "UTF-8";
+
+    String EXPORT_ASYNC_KEY = "export-async";
+
+    String REFER_ASYNC_KEY = "refer-async";
+
+    String EXPORT_BACKGROUND_KEY = "export-background";
+
+    String REFER_BACKGROUND_KEY = "refer-background";
+
+    String EXPORT_THREAD_NUM_KEY = "export-thread-num";
+
+    String REFER_THREAD_NUM_KEY = "refer-thread-num";
+
+    int DEFAULT_EXPORT_THREAD_NUM = 10;
+
+    int DEFAULT_REFER_THREAD_NUM = 10;
+
+    /**
+     * Url merge processor key
+     */
+    String URL_MERGE_PROCESSOR_KEY = "url-merge-processor";
+
+    /**
+     * use native image to compile dubbo's identifier
+     */
+    String NATIVE = "native";
 
     String SERVICE_NAME_MAPPING_KEY = "service-name-mapping";
 }

@@ -69,7 +69,6 @@ public class ConsulServiceDiscoveryTest {
 
         List<ServiceInstance> serviceInstances = consulServiceDiscovery.getInstances(SERVICE_NAME);
         assertEquals(serviceInstances.size(), 1);
-        assertEquals(serviceInstances.get(0).getId(), Integer.toHexString(serviceInstance.hashCode()));
         assertEquals(serviceInstances.get(0).getHost(), serviceInstance.getHost());
         assertEquals(serviceInstances.get(0).getServiceName(), serviceInstance.getServiceName());
         assertEquals(serviceInstances.get(0).getPort(), serviceInstance.getPort());
@@ -82,7 +81,7 @@ public class ConsulServiceDiscoveryTest {
     }
 
     private DefaultServiceInstance createServiceInstance(String serviceName, String host, int port) {
-        return new DefaultServiceInstance(host + ":" + port, serviceName, host, port);
+        return new DefaultServiceInstance(serviceName, host, port);
     }
 
     @Test
@@ -91,8 +90,8 @@ public class ConsulServiceDiscoveryTest {
         assertTrue(consulServiceDiscovery.getInstances(serviceName).isEmpty());
         int portA = NetUtils.getAvailablePort();
         int portB = NetUtils.getAvailablePort();
-        consulServiceDiscovery.register(new DefaultServiceInstance(valueOf(System.nanoTime()), serviceName, "127.0.0.1", portA));
-        consulServiceDiscovery.register(new DefaultServiceInstance(valueOf(System.nanoTime()), serviceName, "127.0.0.1", portB));
+        consulServiceDiscovery.register(new DefaultServiceInstance(serviceName, "127.0.0.1", portA));
+        consulServiceDiscovery.register(new DefaultServiceInstance(serviceName, "127.0.0.1", portB));
         Thread.sleep(5000);
         Assertions.assertFalse(consulServiceDiscovery.getInstances(serviceName).isEmpty());
         List<String> r = convertToIpPort(consulServiceDiscovery.getInstances(serviceName));

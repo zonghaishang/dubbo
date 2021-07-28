@@ -19,7 +19,9 @@ package org.apache.dubbo.config;
 import org.apache.dubbo.common.utils.StringUtils;
 import org.apache.dubbo.config.support.Parameter;
 
-import static org.apache.dubbo.config.Constants.URL_MERGE_PROCESSOR_KEY;
+import static org.apache.dubbo.common.constants.CommonConstants.REFER_BACKGROUND_KEY;
+import static org.apache.dubbo.common.constants.CommonConstants.REFER_THREAD_NUM_KEY;
+import static org.apache.dubbo.common.constants.CommonConstants.URL_MERGE_PROCESSOR_KEY;
 
 /**
  * The service consumer default configuration
@@ -67,6 +69,16 @@ public class ConsumerConfig extends AbstractReferenceConfig {
      *  Used to customize the URL merge of consumer and provider
      */
     private String urlMergeProcessor;
+
+    /**
+     * Thread num for asynchronous refer pool size
+     */
+    private Integer referThreadNum;
+
+    /**
+     * Whether refer should run in background or not
+     */
+    private Boolean referBackground;
 
     @Override
     public void setTimeout(Integer timeout) {
@@ -133,5 +145,23 @@ public class ConsumerConfig extends AbstractReferenceConfig {
 
     public void setUrlMergeProcessor(String urlMergeProcessor) {
         this.urlMergeProcessor = urlMergeProcessor;
+    }
+
+    @Parameter(key = REFER_THREAD_NUM_KEY, excluded = true)
+    public Integer getReferThreadNum() {
+        return referThreadNum;
+    }
+
+    public void setReferThreadNum(Integer referThreadNum) {
+        this.referThreadNum = referThreadNum;
+    }
+
+    @Parameter(key = REFER_BACKGROUND_KEY, excluded = true)
+    public Boolean getReferBackground() {
+        return referBackground;
+    }
+
+    public void setReferBackground(Boolean referBackground) {
+        this.referBackground = referBackground;
     }
 }
