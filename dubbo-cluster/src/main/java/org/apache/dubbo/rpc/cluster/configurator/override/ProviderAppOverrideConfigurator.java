@@ -1,0 +1,192 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.dubbo.rpc.cluster.configurator.override;
+
+import org.apache.dubbo.common.URL;
+import org.apache.dubbo.common.utils.NetUtils;
+import org.apache.dubbo.common.utils.StringUtils;
+import org.apache.dubbo.remoting.Constants;
+import org.apache.dubbo.rpc.cluster.configurator.AbstractConfigurator;
+import org.apache.dubbo.rpc.cluster.configurator.parser.model.ConfiguratorConfig;
+
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+
+import static org.apache.dubbo.common.constants.CommonConstants.ANYHOST_VALUE;
+import static org.apache.dubbo.common.constants.CommonConstants.ANY_VALUE;
+import static org.apache.dubbo.common.constants.CommonConstants.APPLICATION_KEY;
+import static org.apache.dubbo.common.constants.CommonConstants.CONSUMER;
+import static org.apache.dubbo.common.constants.CommonConstants.ENABLED_KEY;
+import static org.apache.dubbo.common.constants.CommonConstants.GROUP_KEY;
+import static org.apache.dubbo.common.constants.CommonConstants.INTERFACES;
+import static org.apache.dubbo.common.constants.CommonConstants.PROVIDER;
+import static org.apache.dubbo.common.constants.CommonConstants.SIDE_KEY;
+import static org.apache.dubbo.common.constants.CommonConstants.VERSION_KEY;
+import static org.apache.dubbo.common.constants.RegistryConstants.CATEGORY_KEY;
+import static org.apache.dubbo.common.constants.RegistryConstants.COMPATIBLE_CONFIG_KEY;
+import static org.apache.dubbo.common.constants.RegistryConstants.DYNAMIC_KEY;
+import static org.apache.dubbo.rpc.Constants.SCOPE_KEY;
+import static org.apache.dubbo.rpc.cluster.Constants.CONFIG_VERSION_KEY;
+import static org.apache.dubbo.rpc.cluster.Constants.OVERRIDE_PROVIDERS_KEY;
+
+/**
+ * OverrideConfigurator
+ *
+ */
+public class ProviderAppOverrideConfigurator extends AbstractConfigurator {
+
+    public ProviderAppOverrideConfigurator(URL url) {
+        super(url);
+    }
+
+
+    @Override
+    public URL configure(URL url) {
+        // If override url is not enabled or is invalid, just return.
+        if (!configuratorUrl.getParameter(ENABLED_KEY, true) || configuratorUrl.getHost() == null || url == null || url.getHost() == null) {
+            return url;
+        }
+
+        // The check 'scope=application' level specifies whether the interface is valid or not.
+        if (ConfiguratorConfig.SCOPE_APPLICATION.equals(configuratorUrl.getParameter(SCOPE_KEY, ConfiguratorConfig.SCOPE_APPLICATION))) {
+            if (!configureShouldMatch(url)) return url;
+        }
+
+
+        String currentSide = url.getParameter(SIDE_KEY);
+        String configuratorSide = configuratorUrl.getParameter(SIDE_KEY);
+        if (currentSide.equals(configuratorSide) && CONSUMER.equals(configuratorSide) && url.getPort() == configuratorUrl.getPort()) {
+            url = configureIfMatch(url.getHost(), url);
+        }
+
+        return url;
+    }
+
+    private boolean configureShouldMatch(URL url) {
+        String configService = this.configuratorUrl.getServiceInterface();
+        String currentService = url.getServiceInterface();
+        if (!ANY_VALUE.equals(configService)) {
+            // match application level interface
+            if (!StringUtils.isEquals(configService, currentService)) {
+                return false;
+            }
+
+            // match application level interface version
+            String configVersion = this.configuratorUrl.getParameter(VERSION_KEY);
+            String currentVersion = url.getParameter(VERSION_KEY);
+            if (!ANY_VALUE.equals(configVersion) && !"0.0.0".equals(currentVersion)
+                    && !StringUtils.isEquals(configVersion, currentVersion)) {
+                return false;
+            }
+
+            // match application level interface group
+            String configGroup = this.configuratorUrl.getParameter(GROUP_KEY);
+            String currentGroup = url.getParameter(GROUP_KEY);
+            if (!ANY_VALUE.equals(configGroup) && !StringUtils.isEquals(configGroup, currentGroup)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @Deprecated
+    private URL configureDeprecated(URL url) {
+        // If override url has port, means it is a provider address. We want to control a specific provider with this override url, it may take effect on the specific provider instance or on consumers holding this provider instance.
+        if (configuratorUrl.getPort() != 0) {
+            if (url.getPort() == configuratorUrl.getPort()) {
+                return configureIfMatch(url.getHost(), url);
+            }
+        } else {
+            /*
+             *  override url don't have a port, means the ip override url specify is a consumer address or 0.0.0.0.
+             *  1.If it is a consumer ip address, the intention is to control a specific consumer instance, it must takes effect at the consumer side, any provider received this override url should ignore.
+             *  2.If the ip is 0.0.0.0, this override url can be used on consumer, and also can be used on provider.
+             */
+            if (url.getParameter(SIDE_KEY, PROVIDER).equals(CONSUMER)) {
+                // NetUtils.getLocalHost is the ip address consumer registered to registry.
+                return configureIfMatch(NetUtils.getLocalHost(), url);
+            } else if (url.getParameter(SIDE_KEY, CONSUMER).equals(PROVIDER)) {
+                // take effect on all providers, so address must be 0.0.0.0, otherwise it won't flow to this if branch
+                return configureIfMatch(ANYHOST_VALUE, url);
+            }
+        }
+        return url;
+    }
+
+    private URL configureIfMatch(String host, URL url) {
+        if (ANYHOST_VALUE.equals(configuratorUrl.getHost()) || host.equals(configuratorUrl.getHost())) {
+            // TODO, to support wildcards
+            String providers = configuratorUrl.getParameter(OVERRIDE_PROVIDERS_KEY);
+            if (StringUtils.isEmpty(providers) || providers.contains(url.getAddress()) || providers.contains(ANYHOST_VALUE)) {
+                // unnecessary to compare app for app-level configurations because the listening key has covered the same meaning.
+                String scope = configuratorUrl.getParameter(SCOPE_KEY, ConfiguratorConfig.SCOPE_APPLICATION);
+                if (scope.equals(ConfiguratorConfig.SCOPE_SERVICE)) {
+                    String configApplication = configuratorUrl.getParameter(APPLICATION_KEY,
+                            configuratorUrl.getUsername());
+                    String currentApplication = url.getParameter(APPLICATION_KEY, url.getUsername());
+                    if (configApplication != null && !ANY_VALUE.equals(configApplication)
+                            && !configApplication.equals(currentApplication)) {
+                        return url;
+                    }
+                }
+
+                Set<String> tildeKeys = new HashSet<>();
+                for (Map.Entry<String, String> entry : configuratorUrl.getParameters().entrySet()) {
+                    String key = entry.getKey();
+                    String value = entry.getValue();
+                    String tildeKey = StringUtils.isNotEmpty(key) && key.startsWith(TILDE) ? key : null;
+
+                    if (tildeKey != null || SIDE_KEY.equals(key)) {
+                        if (value != null && !ANY_VALUE.equals(value)
+                                && !value.equals(url.getParameter(tildeKey != null ? key.substring(1) : key))) {
+                            return url;
+                        }
+                    }
+
+                    if (tildeKey != null) {
+                        tildeKeys.add(tildeKey);
+                    }
+                }
+
+                Set<String> conditionKeys = new HashSet<>();
+                conditionKeys.add(CATEGORY_KEY);
+                conditionKeys.add(Constants.CHECK_KEY);
+                conditionKeys.add(DYNAMIC_KEY);
+                conditionKeys.add(ENABLED_KEY);
+                conditionKeys.add(GROUP_KEY);
+                conditionKeys.add(VERSION_KEY);
+                conditionKeys.add(APPLICATION_KEY);
+                conditionKeys.add(SIDE_KEY);
+                conditionKeys.add(CONFIG_VERSION_KEY);
+                conditionKeys.add(COMPATIBLE_CONFIG_KEY);
+                conditionKeys.add(INTERFACES);
+                conditionKeys.addAll(tildeKeys);
+
+                return doConfigure(url, configuratorUrl.removeParameters(conditionKeys));
+            }
+        }
+        return url;
+    }
+
+
+    @Override
+    public URL doConfigure(URL currentUrl, URL configUrl) {
+        return currentUrl.addParameters(configUrl.getParameters());
+    }
+
+}

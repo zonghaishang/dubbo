@@ -49,9 +49,9 @@ import static org.apache.dubbo.rpc.cluster.Constants.OVERRIDE_PROVIDERS_KEY;
  */
 public abstract class AbstractConfigurator implements Configurator {
 
-    private static final String TILDE = "~";
+    protected static final String TILDE = "~";
 
-    private final URL configuratorUrl;
+    protected final URL configuratorUrl;
 
     public AbstractConfigurator(URL url) {
         if (url == null) {
