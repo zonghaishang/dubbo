@@ -16,6 +16,11 @@
  */
 package org.apache.dubbo.registry.integration;
 
+import static org.apache.dubbo.registry.Constants.CONFIGURATORS_SUFFIX;
+import static org.apache.dubbo.rpc.Constants.SCOPE_KEY;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import org.apache.dubbo.common.config.configcenter.ConfigChangeType;
 import org.apache.dubbo.common.config.configcenter.ConfigChangedEvent;
 import org.apache.dubbo.common.config.configcenter.ConfigurationListener;
@@ -30,13 +35,6 @@ import org.apache.dubbo.rpc.cluster.configurator.parser.model.ConfiguratorConfig
 import org.apache.dubbo.rpc.cluster.governance.GovernanceRuleRepository;
 import org.apache.dubbo.rpc.model.ApplicationModel;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-
-import static org.apache.dubbo.registry.Constants.CONFIGURATORS_SUFFIX;
-import static org.apache.dubbo.rpc.Constants.SCOPE_KEY;
-
 /**
  * AbstractConfiguratorListener
  */
@@ -46,8 +44,19 @@ public abstract class AbstractConfiguratorListener implements ConfigurationListe
     protected List<Configurator> configurators = Collections.emptyList();
     protected GovernanceRuleRepository ruleRepository = ExtensionLoader.getExtensionLoader(
             GovernanceRuleRepository.class).getDefaultExtension();
+    private String key;
+    private String overrideProtocol;
+
+    protected AbstractConfiguratorListener() {
+        this.overrideProtocol = "override";
+    }
+
+    protected AbstractConfiguratorListener(String overrideProtocol) {
+        this.overrideProtocol = overrideProtocol;
+    }
 
     protected final void initWith(String key) {
+        this.key = key;
         ruleRepository.addListener(key, this);
         String rawConfig = ruleRepository.getRule(key, DynamicConfiguration.DEFAULT_GROUP);
         if (!StringUtils.isEmpty(rawConfig)) {
@@ -55,7 +64,7 @@ public abstract class AbstractConfiguratorListener implements ConfigurationListe
         }
     }
 
-    protected final void stopListen(String key) {
+    public void stopListen() {
         ruleRepository.removeListener(key, this);
     }
 
@@ -81,7 +90,7 @@ public abstract class AbstractConfiguratorListener implements ConfigurationListe
         boolean parseSuccess = true;
         try {
             // parseConfigurators will recognize app/service config automatically.
-            configurators = Configurator.toConfigurators(ConfigParser.parseConfigurators(rawConfig))
+            configurators = Configurator.toConfigurators(ConfigParser.parseConfigurators(rawConfig, overrideProtocol))
                     .orElse(configurators);
 
             // remove invalid configurators
@@ -112,7 +121,8 @@ public abstract class AbstractConfiguratorListener implements ConfigurationListe
                              * The app name is not configured or matches the app name.
                              */
                             String app = configurator.getUrl().getParameter(ConfiguratorConfig.SCOPE_APPLICATION);
-                            if (StringUtils.isEmpty(app) || StringUtils.isEquals(ApplicationModel.getApplication(), app)) {
+                            if (StringUtils.isEmpty(app) || StringUtils.isEquals(ApplicationModel.getApplication(),
+                                    app)) {
                                 filtered.add(configurator);
                             }
                         }

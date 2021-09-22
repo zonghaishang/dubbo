@@ -26,6 +26,7 @@ import org.apache.dubbo.common.utils.CollectionUtils;
 import org.apache.dubbo.common.utils.NetUtils;
 import org.apache.dubbo.registry.AddressListener;
 import org.apache.dubbo.registry.Constants;
+import org.apache.dubbo.registry.ListenerRegistryWrapper;
 import org.apache.dubbo.registry.client.event.listener.ServiceInstancesChangedListener;
 import org.apache.dubbo.registry.integration.AbstractConfiguratorListener;
 import org.apache.dubbo.registry.integration.DynamicDirectory;
@@ -39,12 +40,16 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static org.apache.dubbo.common.constants.CommonConstants.DISABLED_KEY;
 import static org.apache.dubbo.common.constants.CommonConstants.ENABLED_KEY;
 import static org.apache.dubbo.common.constants.RegistryConstants.EMPTY_PROTOCOL;
+import static org.apache.dubbo.common.utils.UrlUtils.getProtocolServiceKey;
 import static org.apache.dubbo.registry.Constants.CONFIGURATORS_SUFFIX;
 
 public class ServiceDiscoveryRegistryDirectory<T> extends DynamicDirectory<T> {
@@ -53,6 +58,7 @@ public class ServiceDiscoveryRegistryDirectory<T> extends DynamicDirectory<T> {
     // instance address to invoker mapping.
     private volatile Map<String, Invoker<T>> urlInvokerMap; // The initial value is null and the midway may be assigned to null, please use the local variable reference
     private final static ConsumerConfigurationListener CONSUMER_CONFIGURATION_LISTENER = new ConsumerConfigurationListener();
+    private final static Map<String, ProviderSideAppConfigurationListener> PROVIDER_CONFIGURATION_LISTENERS = new ConcurrentHashMap<>();
     private volatile ReferenceConfigurationListener referenceConfigurationListener;
     private volatile boolean enableConfigurationListen = true;
     private volatile List<URL> originalUrls = null; // initial for null
@@ -73,6 +79,9 @@ public class ServiceDiscoveryRegistryDirectory<T> extends DynamicDirectory<T> {
         } else {
             enableConfigurationListen = false;
         }
+
+        this.tryStartProviderAppListener();
+
         super.subscribe(url);
     }
 
@@ -81,8 +90,11 @@ public class ServiceDiscoveryRegistryDirectory<T> extends DynamicDirectory<T> {
         this.originalUrls = null;
         if (ApplicationModel.getEnvironment().getConfiguration().convert(Boolean.class, Constants.ENABLE_CONFIGURATION_LISTEN, true)) {
             CONSUMER_CONFIGURATION_LISTENER.removeNotifyListener(this);
-            referenceConfigurationListener.stop();
+            referenceConfigurationListener.stopListen();
         }
+
+        tryStopProviderAppListener(url);
+
         super.unSubscribe(url);
     }
 
@@ -104,6 +116,9 @@ public class ServiceDiscoveryRegistryDirectory<T> extends DynamicDirectory<T> {
 
     @Override
     public synchronized void notify(List<URL> instanceUrls) {
+        // if not listened, listen
+
+
         // Set the context of the address notification thread.
         RpcContext.setRpcContext(getConsumerUrl());
 
@@ -154,6 +169,11 @@ public class ServiceDiscoveryRegistryDirectory<T> extends DynamicDirectory<T> {
     }
 
     private InstanceAddressURL overrideWithConfigurator(InstanceAddressURL providerUrl) {
+        // override url with configurator from configurator from "provider-app-name.configurators"
+        for (Map.Entry<String, ProviderSideAppConfigurationListener> entry : PROVIDER_CONFIGURATION_LISTENERS.entrySet()) {
+            providerUrl = overrideWithConfigurators(entry.getValue().getConfigurators(), providerUrl);
+        }
+
         // override url with configurator from configurator from "app-name.configurators"
         providerUrl = overrideWithConfigurators(CONSUMER_CONFIGURATION_LISTENER.getConfigurators(), providerUrl);
 
@@ -259,8 +279,8 @@ public class ServiceDiscoveryRegistryDirectory<T> extends DynamicDirectory<T> {
 
             Invoker<T> invoker = urlInvokerMap == null ? null : urlInvokerMap.get(instanceAddressURL.getAddress());
             if (invoker == null || urlChanged(invoker, instanceAddressURL)) { // Not in the cache, refer again
+                boolean enabled = true;
                 try {
-                    boolean enabled = true;
                     if (instanceAddressURL.hasParameter(DISABLED_KEY)) {
                         enabled = !instanceAddressURL.getParameter(DISABLED_KEY, false);
                     } else {
@@ -272,7 +292,7 @@ public class ServiceDiscoveryRegistryDirectory<T> extends DynamicDirectory<T> {
                 } catch (Throwable t) {
                     logger.error("Failed to refer invoker for interface:" + serviceType + ",url:(" + instanceAddressURL + ")" + t.getMessage(), t);
                 }
-                if (invoker != null) { // Put new invoker in cache
+                if (invoker != null && enabled) { // Put new invoker in cache
                     newUrlInvokerMap.put(instanceAddressURL.getAddress(), invoker);
                 }
             } else {
@@ -373,6 +393,54 @@ public class ServiceDiscoveryRegistryDirectory<T> extends DynamicDirectory<T> {
         }
     }
 
+
+    public void tryStartProviderAppListener() {
+        // listen to provider apps
+        ServiceDiscoveryRegistry serviceDiscoveryRegistry = getServiceDiscoveryRegistry();
+        Map<String, Set<String>> serviceToApps = serviceDiscoveryRegistry.getServiceToAppsMapping();
+        if (CollectionUtils.isNotEmptyMap(serviceToApps)) {
+            Set<String> apps = serviceToApps.get(getProtocolServiceKey(consumerUrl));
+            if (CollectionUtils.isNotEmpty(apps)) {
+                for (String key : apps) {
+                    PROVIDER_CONFIGURATION_LISTENERS.computeIfAbsent(key, appName -> {
+                        ProviderSideAppConfigurationListener l = new ProviderSideAppConfigurationListener(appName);
+                        l.addNotifyListener(ServiceDiscoveryRegistryDirectory.this);
+                        return l;
+                    });
+                }
+            }
+        }
+    }
+
+    private ServiceDiscoveryRegistry getServiceDiscoveryRegistry() {
+        ServiceDiscoveryRegistry serviceDiscoveryRegistry;
+        if (registry instanceof ListenerRegistryWrapper) {
+            serviceDiscoveryRegistry = (ServiceDiscoveryRegistry)((ListenerRegistryWrapper)registry).getRegistry();
+        } else {
+            serviceDiscoveryRegistry = (ServiceDiscoveryRegistry) registry;
+        }
+        return serviceDiscoveryRegistry;
+    }
+
+    private void tryStopProviderAppListener(URL url) {
+        // listen to provider apps
+        ServiceDiscoveryRegistry serviceDiscoveryRegistry = getServiceDiscoveryRegistry();
+        Map<String, Set<String>> serviceToApps = serviceDiscoveryRegistry.getServiceToAppsMapping();
+        if (CollectionUtils.isNotEmptyMap(serviceToApps)) {
+            Set<String> apps = serviceToApps.get(getProtocolServiceKey(url));
+            if (CollectionUtils.isNotEmpty(apps)) {
+                for (String key : apps) {
+                    ProviderSideAppConfigurationListener l = PROVIDER_CONFIGURATION_LISTENERS.get(key);
+                    l.removeNotifyListener(ServiceDiscoveryRegistryDirectory.this);
+                    if (!l.hasListeners()) {
+                        PROVIDER_CONFIGURATION_LISTENERS.remove(key);
+                        l.stopListen();
+                    }
+                }
+            }
+        }
+    }
+
     private static class ReferenceConfigurationListener extends AbstractConfiguratorListener {
         private final ServiceDiscoveryRegistryDirectory<?> directory;
         private final URL url;
@@ -381,10 +449,6 @@ public class ServiceDiscoveryRegistryDirectory<T> extends DynamicDirectory<T> {
             this.directory = directory;
             this.url = url;
             this.initWith(DynamicConfiguration.getRuleKey(url) + CONFIGURATORS_SUFFIX);
-        }
-
-        void stop() {
-            this.stopListen(DynamicConfiguration.getRuleKey(url) + CONFIGURATORS_SUFFIX);
         }
 
         @Override
@@ -400,27 +464,68 @@ public class ServiceDiscoveryRegistryDirectory<T> extends DynamicDirectory<T> {
     }
 
     private static class ConsumerConfigurationListener extends AbstractConfiguratorListener {
-        private final List<ServiceDiscoveryRegistryDirectory<?>> listeners = new ArrayList<>();
+        // make sure the same Directory present only once
+        private final Set<ServiceDiscoveryRegistryDirectory<?>> listeners = new HashSet<>();
 
         ConsumerConfigurationListener() {
         }
 
-        void addNotifyListener(ServiceDiscoveryRegistryDirectory<?> listener) {
+        synchronized void addNotifyListener(ServiceDiscoveryRegistryDirectory<?> listener) {
             if (listeners.size() == 0) {
                 this.initWith(ApplicationModel.getApplication() + CONFIGURATORS_SUFFIX);
             }
             this.listeners.add(listener);
         }
 
-        void removeNotifyListener(ServiceDiscoveryRegistryDirectory<?> listener) {
+        synchronized void removeNotifyListener(ServiceDiscoveryRegistryDirectory<?> listener) {
             this.listeners.remove(listener);
             if (listeners.size() == 0) {
-                this.stopListen(ApplicationModel.getApplication() + CONFIGURATORS_SUFFIX);
+                this.stopListen();
             }
         }
 
         @Override
-        protected void notifyOverrides() {
+        protected synchronized void notifyOverrides() {
+            listeners.forEach(listener -> {
+                if (listener.originalUrls != null) {
+                    URL backup = RpcContext.getContext().getConsumerUrl();
+                    RpcContext.getContext().setConsumerUrl(listener.getConsumerUrl());
+                    listener.refreshOverrideAndInvoker(listener.originalUrls);
+                    RpcContext.getContext().setConsumerUrl(backup);
+                }
+            });
+        }
+    }
+
+    private static class ProviderSideAppConfigurationListener extends AbstractConfiguratorListener {
+        private final List<ServiceDiscoveryRegistryDirectory<?>> listeners = new ArrayList<>();
+        private String appName;
+
+        ProviderSideAppConfigurationListener(String appName) {
+            super("provider-override");
+            this.appName = appName;
+        }
+
+        synchronized void addNotifyListener(ServiceDiscoveryRegistryDirectory<?> listener) {
+            if (listeners.size() == 0) {
+                this.initWith(this.appName + CONFIGURATORS_SUFFIX);
+            }
+            this.listeners.add(listener);
+        }
+
+        synchronized void removeNotifyListener(ServiceDiscoveryRegistryDirectory<?> listener) {
+            this.listeners.remove(listener);
+            if (listeners.size() == 0) {
+                this.stopListen();
+            }
+        }
+
+        synchronized boolean hasListeners() {
+           return this.listeners.size() > 0;
+        }
+
+        @Override
+        synchronized protected void notifyOverrides() {
             listeners.forEach(listener -> {
                 if (listener.originalUrls != null) {
                     URL backup = RpcContext.getContext().getConsumerUrl();
