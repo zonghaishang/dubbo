@@ -14,24 +14,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.dubbo.demo.consumer;
+package org.apache.dubbo.demo;
 
-import org.apache.dubbo.demo.DemoService;
-import org.apache.dubbo.demo.GreetingService;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.ImportResource;
 
-import org.springframework.context.support.ClassPathXmlApplicationContext;
-
-import java.util.concurrent.CompletableFuture;
-
+@SpringBootApplication
+@ImportResource("spring/dubbo-consumer.xml")
+//@ComponentScan("org.apache.dubbo.demo.consumer")
 public class Application {
     /**
      * In order to make sure multicast registry works, need to specify '-Djava.net.preferIPv4Stack=true' before
      * launch the application
      */
     public static void main(String[] args) throws Exception {
-        ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("spring/dubbo-consumer.xml");
-        context.start();
-        DemoService demoService = context.getBean("demoService", DemoService.class);
+//        ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("spring/dubbo-consumer.xml");
+//        context.start();
+        SpringApplication.run(Application.class, args);
+//        DemoService demoService = context.getBean("demoService", DemoService.class);
 //        GreetingService greetingService = context.getBean("greetingService", GreetingService.class);
 //
 //        new Thread(() -> {
@@ -46,18 +48,18 @@ public class Application {
 //            }
 //        }).start();
 
-        while (true) {
-            try{
-                String hello = demoService.sayHello("world");
-                System.out.println("result: " + hello);
-
-//            String greetings = greetingService.hello();
-//            System.out.println("result: " + greetings);
-
-                Thread.sleep(3000);
-            }catch (Exception e){
-                Thread.sleep(3000);
-            }
-        }
+//        while (true) {
+//            try{
+//                String hello = demoService.sayHello("world");
+//                System.out.println("result: " + hello);
+//
+////            String greetings = greetingService.hello();
+////            System.out.println("result: " + greetings);
+//
+//                Thread.sleep(3000);
+//            }catch (Exception e){
+//                Thread.sleep(3000);
+//            }
+//        }
     }
 }

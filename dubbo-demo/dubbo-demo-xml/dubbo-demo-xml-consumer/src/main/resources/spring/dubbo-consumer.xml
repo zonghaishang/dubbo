@@ -26,14 +26,23 @@
         <dubbo:parameter key="enable-auto-migration" value="true"/>
     </dubbo:application>
 
-    <dubbo:metadata-report address="zookeeper://127.0.1:2181"/>
+    <dubbo:registry id="multipleRegistry" protocol="multiple" address="multiple://0.0.0.0?registry-type=service">
+        <dubbo:parameter key="child.zk1" value="zookeeper://127.0.0.1:2181"/>
+    </dubbo:registry>
 
-    <dubbo:registry address="zookeeper://127.0.0.1:2181?registry-type=service"/>
+    <dubbo:config-center address="zookeeper://127.0.0.1:2181"/>
+    <dubbo:metadata-report address="zookeeper://127.0.0.1:2181"/>
 
-    <dubbo:reference id="demoService" check="true"
-                     interface="org.apache.dubbo.demo.DemoService"/>
+  <dubbo:protocol name="dubbo" port="30880" />
 
-<!--    <dubbo:reference version="1.0.0" group="greeting" id="greetingService" check="false"-->
-<!--                     interface="org.apache.dubbo.demo.GreetingService"/>-->
+   <bean id="helloWorldTestService1" class="org.apache.dubbo.demo.consumer.HelloWordTestServiceImpl" />
+    <dubbo:service interface="org.apache.dubbo.demo.consumer.HelloWordTestService1" ref="helloWorldTestService1"/>
 
+    <dubbo:reference id="helloWordService" interface="org.apache.dubbo.demo.HelloWordService" version="1.1"/>
+
+  <dubbo:reference id="consumer1" interface="org.apache.dubbo.demo.consumer.HelloWordTestService1" check="false"/>
+
+<!--  <bean id="runInvoke" class="org.apache.dubbo.demo.consumer.HelloWorldController2" />-->
+
+  <bean class="org.apache.dubbo.demo.consumer.AppStartedInvocation" />
 </beans>
