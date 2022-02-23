@@ -58,8 +58,8 @@ public class ZookeeperServiceDiscoveryChangeWatcher implements CuratorWatcher {
 
         if (NodeChildrenChanged.equals(eventType) || NodeDataChanged.equals(eventType)) {
             if (shouldKeepWatching()) {
-                listener.onEvent(new ServiceInstancesChangedEvent(serviceName, zookeeperServiceDiscovery.getInstances(serviceName)));
                 zookeeperServiceDiscovery.registerServiceWatcher(serviceName, listener);
+                listener.onEvent(new ServiceInstancesChangedEvent(serviceName, zookeeperServiceDiscovery.getInstances(serviceName)));
                 // only the current registry will be queried, which may be pushed empty.
                 // zookeeperServiceDiscovery.dispatchServiceInstancesChangedEvent(serviceName);
             }

@@ -44,6 +44,12 @@
             <groupId>org.apache.dubbo</groupId>
             <artifactId>dubbo-remoting-zookeeper-curator5</artifactId>
             <version>${project.parent.version}</version>
+            <exclusions>
+                <exclusion>
+                    <artifactId>guava</artifactId>
+                    <groupId>com.google.guava</groupId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.apache.curator</groupId>
@@ -53,6 +59,18 @@
             <groupId>org.apache.curator</groupId>
             <artifactId>curator-test</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <artifactId>guava</artifactId>
+                    <groupId>com.google.guava</groupId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <artifactId>guava</artifactId>
+            <groupId>com.google.guava</groupId>
+            <version>20.0</version>
         </dependency>
     </dependencies>
 </project>

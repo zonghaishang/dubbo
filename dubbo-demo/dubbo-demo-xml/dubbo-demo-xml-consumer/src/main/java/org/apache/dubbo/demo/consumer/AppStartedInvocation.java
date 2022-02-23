@@ -23,10 +23,10 @@ public class AppStartedInvocation extends OnceApplicationContextEventListener
                         try {
                             System.out.println("result: " + service1.sayHello(1));
 
-                            Thread.sleep(3000);
+                            Thread.sleep(5000);
                         } catch (Exception e) {
                             try {
-                                Thread.sleep(3000);
+                                Thread.sleep(5000);
                             } catch (InterruptedException ex) {
                                 ex.printStackTrace();
                             }

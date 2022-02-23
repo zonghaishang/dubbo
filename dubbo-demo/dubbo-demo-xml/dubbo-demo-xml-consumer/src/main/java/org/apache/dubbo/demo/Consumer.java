@@ -18,13 +18,12 @@ package org.apache.dubbo.demo;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.ImportResource;
 
 @SpringBootApplication
 @ImportResource("spring/dubbo-consumer.xml")
 //@ComponentScan("org.apache.dubbo.demo.consumer")
-public class Application {
+public class Consumer {
     /**
      * In order to make sure multicast registry works, need to specify '-Djava.net.preferIPv4Stack=true' before
      * launch the application
@@ -32,7 +31,7 @@ public class Application {
     public static void main(String[] args) throws Exception {
 //        ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("spring/dubbo-consumer.xml");
 //        context.start();
-        SpringApplication.run(Application.class, args);
+        SpringApplication.run(Consumer.class, args);
 //        DemoService demoService = context.getBean("demoService", DemoService.class);
 //        GreetingService greetingService = context.getBean("greetingService", GreetingService.class);
 //
