@@ -245,7 +245,7 @@ public class ServiceInstanceMetadataUtils {
             return;
         }
         MetadataInfo metadataInfo = WritableMetadataService.getDefaultExtension().getMetadataInfos().get(registryCluster);
-        if (metadataInfo != null) {
+        if (metadataInfo != null && instance != null) {
             String existingInstanceRevision = instance.getMetadata().get(EXPORTED_SERVICES_REVISION_PROPERTY_NAME);
             if (!metadataInfo.calAndGetRevision().equals(existingInstanceRevision)) {
                 instance.getMetadata().put(EXPORTED_SERVICES_REVISION_PROPERTY_NAME, metadataInfo.calAndGetRevision());
@@ -269,9 +269,11 @@ public class ServiceInstanceMetadataUtils {
         remoteMetadataService.publishMetadata(ApplicationModel.getName());
 
         AbstractRegistryFactory.getServiceDiscoveries().forEach(serviceDiscovery -> {
-            calInstanceRevision(serviceDiscovery, serviceDiscovery.getLocalInstance());
-            // update service instance revision
-            serviceDiscovery.update(serviceDiscovery.getLocalInstance());
+            if (serviceDiscovery.getLocalInstance() != null) { // delay export first time is null.
+                calInstanceRevision(serviceDiscovery, serviceDiscovery.getLocalInstance());
+                // update service instance revision
+                serviceDiscovery.update(serviceDiscovery.getLocalInstance());
+            }
         });
     }
 

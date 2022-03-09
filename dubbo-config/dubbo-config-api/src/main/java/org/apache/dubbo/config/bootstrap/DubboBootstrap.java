@@ -924,7 +924,7 @@ public class DubboBootstrap {
     }
 
     private boolean hasExportedServices() {
-        return !metadataService.getExportedURLs().isEmpty();
+        return !metadataService.getExportedURLs().isEmpty() || !configManager.getServices().isEmpty();
     }
 
     /**
@@ -1164,13 +1164,13 @@ public class DubboBootstrap {
 
         URL exportedURL = selectMetadataServiceExportedURL();
 
-        String host = exportedURL.getHost();
+        if (exportedURL != null) {
+            String host = exportedURL.getHost();
+            int port = exportedURL.getPort();
 
-        int port = exportedURL.getPort();
-
-        ServiceInstance serviceInstance = createServiceInstance(serviceName, host, port);
-
-        doRegisterServiceInstance(serviceInstance);
+            ServiceInstance serviceInstance = createServiceInstance(serviceName, host, port);
+            doRegisterServiceInstance(serviceInstance);
+        }
 
         // scheduled task for updating Metadata and ServiceInstance
         executorRepository.nextScheduledExecutor().scheduleAtFixedRate(() -> {

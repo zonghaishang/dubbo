@@ -19,6 +19,7 @@ package org.apache.dubbo.demo;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.ImportResource;
+import org.springframework.context.support.ClassPathXmlApplicationContext;
 
 @SpringBootApplication
 @ImportResource("spring/dubbo-consumer.xml")
@@ -29,23 +30,23 @@ public class Consumer {
      * launch the application
      */
     public static void main(String[] args) throws Exception {
-//        ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("spring/dubbo-consumer.xml");
-//        context.start();
-        SpringApplication.run(Consumer.class, args);
+        ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("spring/dubbo-consumer.xml");
+        context.start();
+//        SpringApplication.run(Consumer.class, args);
 //        DemoService demoService = context.getBean("demoService", DemoService.class);
-//        GreetingService greetingService = context.getBean("greetingService", GreetingService.class);
-//
-//        new Thread(() -> {
-//            while (true) {
-//                String greetings = greetingService.hello();
-//                System.out.println(greetings + " from separated thread.");
-//                try {
-//                    Thread.sleep(100);
-//                } catch (InterruptedException e) {
-//                    e.printStackTrace();
-//                }
-//            }
-//        }).start();
+        GreetingService greetingService = context.getBean("greetingService", GreetingService.class);
+
+        new Thread(() -> {
+            while (true) {
+                String greetings = greetingService.hello();
+                System.out.println(greetings + " from separated thread.");
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }).start();
 
 //        while (true) {
 //            try{

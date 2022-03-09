@@ -35,18 +35,20 @@
 
   <dubbo:protocol name="dubbo" port="30880" />
 
-   <bean id="helloWorldTestService1" class="org.apache.dubbo.demo.consumer.HelloWordTestServiceImpl" />
-    <dubbo:service interface="org.apache.dubbo.demo.consumer.HelloWordTestService1" ref="helloWorldTestService1"/>
+<!--   <bean id="helloWorldTestService1" class="org.apache.dubbo.demo.consumer.HelloWordTestServiceImpl" />-->
+<!--    <dubbo:service interface="org.apache.dubbo.demo.consumer.HelloWordTestService1" ref="helloWorldTestService1"/>-->
 
-  <dubbo:reference id="helloWordService1.0" interface="org.apache.dubbo.demo.HelloWordService" version="1.0" check="false"/>
+<!--  <dubbo:reference id="helloWordService1.0" interface="org.apache.dubbo.demo.HelloWordService" version="1.0" check="false"/>-->
 
-    <dubbo:reference id="helloWordService" interface="org.apache.dubbo.demo.HelloWordService" version="1.1"/>
+<!--    <dubbo:reference id="helloWordService" interface="org.apache.dubbo.demo.HelloWordService" version="1.1"/>-->
 
-  <dubbo:reference id="helloWordService2.0" interface="org.apache.dubbo.demo.HelloWordService" version="2.0" check="false"/>
+<!--  <dubbo:reference id="helloWordService2.0" interface="org.apache.dubbo.demo.HelloWordService" version="2.0" check="false"/>-->
 
-  <dubbo:reference id="consumer1" interface="org.apache.dubbo.demo.consumer.HelloWordTestService1" check="false"/>
+<!--  <dubbo:reference id="consumer1" interface="org.apache.dubbo.demo.consumer.HelloWordTestService1" check="false"/>-->
+
+  <dubbo:reference id="greetingService" interface="org.apache.dubbo.demo.GreetingService" />
 
 <!--  <bean id="runInvoke" class="org.apache.dubbo.demo.consumer.HelloWorldController2" />-->
 
-  <bean class="org.apache.dubbo.demo.consumer.AppStartedInvocation" />
+<!--  <bean class="org.apache.dubbo.demo.consumer.AppStartedInvocation" />-->
 </beans>

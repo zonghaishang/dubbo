@@ -21,19 +21,23 @@
        xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.3.xsd
        http://dubbo.apache.org/schema/dubbo http://dubbo.apache.org/schema/dubbo/dubbo.xsd">
 
-    <dubbo:application name="demo-provider" metadata-type="remote">
-        <dubbo:parameter key="mapping-type" value="metadata"/>
-    </dubbo:application>
+  <dubbo:application name="demo-provider" metadata-type="remote">
+    <dubbo:parameter key="mapping-type" value="metadata"/>
+  </dubbo:application>
 
-    <dubbo:registry id="multipleRegistry" protocol="multiple" address="multiple://0.0.0.0?registry-type=service">
-        <dubbo:parameter key="child.zk1" value="zookeeper://127.0.0.1:2181"/>
-    </dubbo:registry>
+  <dubbo:registry id="multipleRegistry" protocol="multiple" address="multiple://0.0.0.0?registry-type=service">
+    <dubbo:parameter key="child.zk1" value="zookeeper://127.0.0.1:2181"/>
+  </dubbo:registry>
 
-    <dubbo:config-center address="zookeeper://127.0.0.1:2181"/>
-    <dubbo:metadata-report address="zookeeper://127.0.0.1:2181"/>
+  <dubbo:config-center address="zookeeper://127.0.0.1:2181"/>
+  <dubbo:metadata-report address="zookeeper://127.0.0.1:2181"/>
 
-    <bean id="helloWordServerService" class="org.apache.dubbo.demo.HelloWordServerServiceImpl"/>
+  <!--    <bean id="helloWordServerService" class="org.apache.dubbo.demo.HelloWordServerServiceImpl"/>-->
 
-    <dubbo:service interface="org.apache.dubbo.demo.HelloWordService" ref="helloWordServerService" version="1.1"/>
+  <!--    <dubbo:service interface="org.apache.dubbo.demo.HelloWordService" ref="helloWordServerService" version="1.1"/>-->
+
+  <bean id="greetingServiceImpl" class="org.apache.dubbo.demo.provider.GreetingServiceImpl"/>
+
+  <dubbo:service interface="org.apache.dubbo.demo.GreetingService" ref="greetingServiceImpl" delay="10000"/>
 
 </beans>
