@@ -1158,30 +1158,33 @@ public class DubboBootstrap {
             return;
         }
 
+        registerInstanceIfRequired();
+
+        // scheduled task for updating Metadata and ServiceInstance
+        executorRepository.nextScheduledExecutor().scheduleAtFixedRate(() -> {
+            try {
+                InMemoryWritableMetadataService localMetadataService = (InMemoryWritableMetadataService) WritableMetadataService.getDefaultExtension();
+                registerInstanceIfRequired();
+                ServiceInstanceMetadataUtils.refreshMetadataAndInstance();
+            } catch (Throwable e) {
+                logger.error("refresh metadata and instance failed", e);
+            }
+        }, 0, ConfigurationUtils.get(METADATA_PUBLISH_DELAY_KEY, DEFAULT_METADATA_PUBLISH_DELAY), TimeUnit.MILLISECONDS);
+    }
+
+    private void registerInstanceIfRequired() {
         ApplicationConfig application = getApplication();
-
         String serviceName = application.getName();
-
         URL exportedURL = selectMetadataServiceExportedURL();
-
-        if (exportedURL != null) {
+        // check service instance registered or not,
+        // createServiceInstance method will init bootstrap serviceInstance field.
+        if (exportedURL != null && this.serviceInstance == null) {
             String host = exportedURL.getHost();
             int port = exportedURL.getPort();
 
             ServiceInstance serviceInstance = createServiceInstance(serviceName, host, port);
             doRegisterServiceInstance(serviceInstance);
         }
-
-        // scheduled task for updating Metadata and ServiceInstance
-        executorRepository.nextScheduledExecutor().scheduleAtFixedRate(() -> {
-            try {
-                InMemoryWritableMetadataService localMetadataService = (InMemoryWritableMetadataService) WritableMetadataService.getDefaultExtension();
-                localMetadataService.blockUntilUpdated();
-                ServiceInstanceMetadataUtils.refreshMetadataAndInstance();
-            } catch (Throwable e) {
-                logger.error("refresh metadata and instance failed", e);
-            }
-        }, 0, ConfigurationUtils.get(METADATA_PUBLISH_DELAY_KEY, DEFAULT_METADATA_PUBLISH_DELAY), TimeUnit.MILLISECONDS);
     }
 
     private void doRegisterServiceInstance(ServiceInstance serviceInstance) {
