@@ -38,6 +38,6 @@
 
   <bean id="greetingServiceImpl" class="org.apache.dubbo.demo.provider.GreetingServiceImpl"/>
 
-  <dubbo:service interface="org.apache.dubbo.demo.GreetingService" ref="greetingServiceImpl" delay="10000"/>
+  <dubbo:service interface="org.apache.dubbo.demo.GreetingService" ref="greetingServiceImpl"/>
 
 </beans>
