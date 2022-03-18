@@ -41,7 +41,7 @@ public abstract class AbstractServiceDiscovery implements ServiceDiscovery {
 
     @Override
     public final void update(ServiceInstance serviceInstance) throws RuntimeException {
-        if (serviceInstance == null || !isInstanceUpdated(serviceInstance)) {
+        if (!isInstanceUpdated(serviceInstance)) {
             return;
         }
         doUpdate(serviceInstance);

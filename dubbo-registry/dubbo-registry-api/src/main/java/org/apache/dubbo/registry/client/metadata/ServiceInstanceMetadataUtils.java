@@ -257,7 +257,7 @@ public class ServiceInstanceMetadataUtils {
     }
 
     public static boolean isInstanceUpdated(ServiceInstance instance) {
-        return "true".equals(instance.getExtendParams().get(INSTANCE_REVISION_UPDATED_KEY));
+        return (instance != null) && "true".equals(instance.getExtendParams().get(INSTANCE_REVISION_UPDATED_KEY));
     }
 
     public static void resetInstanceUpdateKey(ServiceInstance instance) {
