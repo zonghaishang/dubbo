@@ -16,6 +16,20 @@
  */
 package org.apache.dubbo.registry.client;
 
+import static org.apache.dubbo.common.constants.CommonConstants.DISABLED_KEY;
+import static org.apache.dubbo.common.constants.CommonConstants.ENABLED_KEY;
+import static org.apache.dubbo.common.constants.RegistryConstants.EMPTY_PROTOCOL;
+import static org.apache.dubbo.common.utils.UrlUtils.getProtocolServiceKey;
+import static org.apache.dubbo.registry.Constants.CONFIGURATORS_SUFFIX;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.dubbo.common.URL;
 import org.apache.dubbo.common.config.configcenter.DynamicConfiguration;
 import org.apache.dubbo.common.extension.ExtensionLoader;
@@ -24,6 +38,7 @@ import org.apache.dubbo.common.logger.LoggerFactory;
 import org.apache.dubbo.common.utils.Assert;
 import org.apache.dubbo.common.utils.CollectionUtils;
 import org.apache.dubbo.common.utils.NetUtils;
+import org.apache.dubbo.common.utils.StringUtils;
 import org.apache.dubbo.registry.AddressListener;
 import org.apache.dubbo.registry.Constants;
 import org.apache.dubbo.registry.ListenerRegistryWrapper;
@@ -36,29 +51,16 @@ import org.apache.dubbo.rpc.RpcContext;
 import org.apache.dubbo.rpc.cluster.Configurator;
 import org.apache.dubbo.rpc.model.ApplicationModel;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-
-import static org.apache.dubbo.common.constants.CommonConstants.DISABLED_KEY;
-import static org.apache.dubbo.common.constants.CommonConstants.ENABLED_KEY;
-import static org.apache.dubbo.common.constants.RegistryConstants.EMPTY_PROTOCOL;
-import static org.apache.dubbo.common.utils.UrlUtils.getProtocolServiceKey;
-import static org.apache.dubbo.registry.Constants.CONFIGURATORS_SUFFIX;
-
 public class ServiceDiscoveryRegistryDirectory<T> extends DynamicDirectory<T> {
     private static final Logger logger = LoggerFactory.getLogger(ServiceDiscoveryRegistryDirectory.class);
 
     // instance address to invoker mapping.
-    private volatile Map<String, Invoker<T>> urlInvokerMap; // The initial value is null and the midway may be assigned to null, please use the local variable reference
-    private final static ConsumerConfigurationListener CONSUMER_CONFIGURATION_LISTENER = new ConsumerConfigurationListener();
-    private final static Map<String, ProviderSideAppConfigurationListener> PROVIDER_CONFIGURATION_LISTENERS = new ConcurrentHashMap<>();
+    private volatile Map<String, Invoker<T>> urlInvokerMap;
+    // The initial value is null and the midway may be assigned to null, please use the local variable reference
+    private final static ConsumerConfigurationListener CONSUMER_CONFIGURATION_LISTENER =
+            new ConsumerConfigurationListener();
+    private final static Map<String, ProviderSideAppConfigurationListener> PROVIDER_CONFIGURATION_LISTENERS =
+            new ConcurrentHashMap<>();
     private volatile ReferenceConfigurationListener referenceConfigurationListener;
     private volatile boolean enableConfigurationListen = true;
     private volatile List<URL> originalUrls = null; // initial for null
@@ -72,7 +74,8 @@ public class ServiceDiscoveryRegistryDirectory<T> extends DynamicDirectory<T> {
 
     @Override
     public void subscribe(URL url) {
-        if (ApplicationModel.getEnvironment().getConfiguration().convert(Boolean.class, Constants.ENABLE_CONFIGURATION_LISTEN, true)) {
+        if (ApplicationModel.getEnvironment().getConfiguration()
+                .convert(Boolean.class, Constants.ENABLE_CONFIGURATION_LISTEN, true)) {
             enableConfigurationListen = true;
             CONSUMER_CONFIGURATION_LISTENER.addNotifyListener(this);
             referenceConfigurationListener = new ReferenceConfigurationListener(this, url);
@@ -88,7 +91,8 @@ public class ServiceDiscoveryRegistryDirectory<T> extends DynamicDirectory<T> {
     @Override
     public void unSubscribe(URL url) {
         this.originalUrls = null;
-        if (ApplicationModel.getEnvironment().getConfiguration().convert(Boolean.class, Constants.ENABLE_CONFIGURATION_LISTEN, true)) {
+        if (ApplicationModel.getEnvironment().getConfiguration()
+                .convert(Boolean.class, Constants.ENABLE_CONFIGURATION_LISTEN, true)) {
             CONSUMER_CONFIGURATION_LISTENER.removeNotifyListener(this);
             referenceConfigurationListener.stopListen();
         }
@@ -125,8 +129,10 @@ public class ServiceDiscoveryRegistryDirectory<T> extends DynamicDirectory<T> {
         /**
          * 3.x added for extend URL address
          */
-        ExtensionLoader<AddressListener> addressListenerExtensionLoader = ExtensionLoader.getExtensionLoader(AddressListener.class);
-        List<AddressListener> supportedListeners = addressListenerExtensionLoader.getActivateExtension(getUrl(), (String[]) null);
+        ExtensionLoader<AddressListener> addressListenerExtensionLoader =
+                ExtensionLoader.getExtensionLoader(AddressListener.class);
+        List<AddressListener> supportedListeners =
+                addressListenerExtensionLoader.getActivateExtension(getUrl(), (String[]) null);
         if (supportedListeners != null && !supportedListeners.isEmpty()) {
             for (AddressListener addressListener : supportedListeners) {
                 instanceUrls = addressListener.notify(instanceUrls, getConsumerUrl(), this);
@@ -149,10 +155,12 @@ public class ServiceDiscoveryRegistryDirectory<T> extends DynamicDirectory<T> {
     private void overrideDirectoryUrl() {
         // merge override parameters
         this.overrideDirectoryUrl = directoryUrl;
-        List<Configurator> localAppDynamicConfigurators = CONSUMER_CONFIGURATION_LISTENER.getConfigurators(); // local reference
+        List<Configurator> localAppDynamicConfigurators =
+                CONSUMER_CONFIGURATION_LISTENER.getConfigurators(); // local reference
         doOverrideUrl(localAppDynamicConfigurators);
         if (referenceConfigurationListener != null) {
-            List<Configurator> localDynamicConfigurators = referenceConfigurationListener.getConfigurators(); // local reference
+            List<Configurator> localDynamicConfigurators =
+                    referenceConfigurationListener.getConfigurators(); // local reference
             doOverrideUrl(localDynamicConfigurators);
         }
     }
@@ -170,7 +178,8 @@ public class ServiceDiscoveryRegistryDirectory<T> extends DynamicDirectory<T> {
 
     private InstanceAddressURL overrideWithConfigurator(InstanceAddressURL providerUrl) {
         // override url with configurator from configurator from "provider-app-name.configurators"
-        for (Map.Entry<String, ProviderSideAppConfigurationListener> entry : PROVIDER_CONFIGURATION_LISTENERS.entrySet()) {
+        for (Map.Entry<String, ProviderSideAppConfigurationListener> entry :
+                PROVIDER_CONFIGURATION_LISTENERS.entrySet()) {
             providerUrl = overrideWithConfigurators(entry.getValue().getConfigurators(), providerUrl);
         }
 
@@ -191,10 +200,12 @@ public class ServiceDiscoveryRegistryDirectory<T> extends DynamicDirectory<T> {
             OverrideInstanceAddressURL overrideInstanceAddressURL = new OverrideInstanceAddressURL(url);
             if (overrideQueryMap != null) {
                 // override app-level configs
-                overrideInstanceAddressURL = (OverrideInstanceAddressURL) overrideInstanceAddressURL.addParameters(overrideQueryMap);
+                overrideInstanceAddressURL =
+                        (OverrideInstanceAddressURL) overrideInstanceAddressURL.addParameters(overrideQueryMap);
             }
             for (Configurator configurator : configurators) {
-                overrideInstanceAddressURL = (OverrideInstanceAddressURL) configurator.configure(overrideInstanceAddressURL);
+                overrideInstanceAddressURL =
+                        (OverrideInstanceAddressURL) configurator.configure(overrideInstanceAddressURL);
             }
             return overrideInstanceAddressURL;
         }
@@ -222,13 +233,15 @@ public class ServiceDiscoveryRegistryDirectory<T> extends DynamicDirectory<T> {
         Map<String, Invoker<T>> newUrlInvokerMap = toInvokers(invokerUrls);// Translate url list to Invoker map
 
         if (CollectionUtils.isEmptyMap(newUrlInvokerMap)) {
-            logger.error(new IllegalStateException("Cannot create invokers from url address list (total " + invokerUrls.size() + ")"));
+            logger.error(new IllegalStateException(
+                    "Cannot create invokers from url address list (total " + invokerUrls.size() + ")"));
             return;
         }
 
         List<Invoker<T>> newInvokers = Collections.unmodifiableList(new ArrayList<>(newUrlInvokerMap.values()));
         // pre-route and build cache, notice that route cache should build on original Invoker list.
-        // toMergeMethodInvokerMap() will wrap some invokers having different groups, those wrapped invokers not should be routed.
+        // toMergeMethodInvokerMap() will wrap some invokers having different groups, those wrapped invokers not
+        // should be routed.
         routerChain.setInvokers(newInvokers);
         this.invokers = multiGroup ? toMergeInvokerList(newInvokers) : newInvokers;
         this.urlInvokerMap = newUrlInvokerMap;
@@ -290,7 +303,9 @@ public class ServiceDiscoveryRegistryDirectory<T> extends DynamicDirectory<T> {
                         invoker = protocol.refer(serviceType, instanceAddressURL);
                     }
                 } catch (Throwable t) {
-                    logger.error("Failed to refer invoker for interface:" + serviceType + ",url:(" + instanceAddressURL + ")" + t.getMessage(), t);
+                    logger.error(
+                            "Failed to refer invoker for interface:" + serviceType + ",url:(" + instanceAddressURL + ")"
+                                    + t.getMessage(), t);
                 }
                 if (invoker != null && enabled) { // Put new invoker in cache
                     newUrlInvokerMap.put(instanceAddressURL.getAddress(), invoker);
@@ -311,11 +326,21 @@ public class ServiceDiscoveryRegistryDirectory<T> extends DynamicDirectory<T> {
         }
 
         if (oldURL instanceof OverrideInstanceAddressURL || newURL instanceof OverrideInstanceAddressURL) {
-            if(!(oldURL instanceof OverrideInstanceAddressURL && newURL instanceof OverrideInstanceAddressURL)) {
+            if (!(oldURL instanceof OverrideInstanceAddressURL && newURL instanceof OverrideInstanceAddressURL)) {
                 // sub-class changed
                 return true;
             } else {
-                if (!((OverrideInstanceAddressURL) oldURL).getOverrideParams().equals(((OverrideInstanceAddressURL) newURL).getOverrideParams())) {
+
+                OverrideInstanceAddressURL old_url = (OverrideInstanceAddressURL) oldURL;
+                OverrideInstanceAddressURL new_url = (OverrideInstanceAddressURL) newURL;
+
+                ArrayList<Map<String, String>> oldParameters = new ArrayList<>();
+                ArrayList<Map<String, String>> newParameters = new ArrayList<>();
+
+                parseOverrideInstanceParameter(oldParameters, old_url);
+                parseOverrideInstanceParameter(newParameters, new_url);
+
+                if (parametersChanged(oldParameters, newParameters)) {
                     return true;
                 }
             }
@@ -323,6 +348,53 @@ public class ServiceDiscoveryRegistryDirectory<T> extends DynamicDirectory<T> {
 
         return !oldURL.getMetadataInfo().getServiceInfo(getConsumerUrl().getProtocolServiceKey())
                 .equals(newURL.getMetadataInfo().getServiceInfo(getConsumerUrl().getProtocolServiceKey()));
+    }
+
+    private void parseOverrideInstanceParameter(ArrayList<Map<String, String>> parameters,
+                                                OverrideInstanceAddressURL url) {
+        while (url != null && url.getOverrideParams() != null) {
+            parameters.add(url.getOverrideParams());
+            if (url.getOriginUrl() != null) {
+                // check origin is override instance ?
+                if (!(url.getOriginUrl() instanceof OverrideInstanceAddressURL)) {
+                    break;
+                }
+                url = (OverrideInstanceAddressURL) url.getOriginUrl();
+            }
+        }
+    }
+
+    private boolean parametersChanged(ArrayList<Map<String, String>> oldParameters,
+                                      ArrayList<Map<String, String>> newParameters) {
+        if (oldParameters.size() != newParameters.size()) {
+            return true;
+        }
+
+        Map<String, String> oldParameter = mergeOverrideParameters(oldParameters);
+        Map<String, String> newParameter = mergeOverrideParameters(newParameters);
+
+        if (oldParameter.size() != newParameter.size()) {
+            return true;
+        }
+
+        for (String key : oldParameter.keySet()) {
+            String oldValue = oldParameter.get(key);
+            String newValue = newParameter.get(key);
+            if (!StringUtils.isEquals(oldValue, newValue)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private Map<String, String> mergeOverrideParameters(ArrayList<Map<String, String>> parameters) {
+        Map<String, String> oldParameter = new HashMap<>();
+        for (int i = parameters.size() - 1; i >= 0; i--) {
+            Map<String, String> parameter = parameters.get(i);
+            oldParameter.putAll(parameter);
+        }
+        return oldParameter;
     }
 
     private List<Invoker<T>> toMergeInvokerList(List<Invoker<T>> invokers) {
@@ -350,12 +422,14 @@ public class ServiceDiscoveryRegistryDirectory<T> extends DynamicDirectory<T> {
 
     /**
      * Check whether the invoker in the cache needs to be destroyed
-     * If set attribute of url: refer.autodestroy=false, the invokers will only increase without decreasing,there may be a refer leak
+     * If set attribute of url: refer.autodestroy=false, the invokers will only increase without decreasing,there may be
+     * a refer leak
      *
      * @param oldUrlInvokerMap
      * @param newUrlInvokerMap
      */
-    private void destroyUnusedInvokers(Map<String, Invoker<T>> oldUrlInvokerMap, Map<String, Invoker<T>> newUrlInvokerMap) {
+    private void destroyUnusedInvokers(Map<String, Invoker<T>> oldUrlInvokerMap,
+                                       Map<String, Invoker<T>> newUrlInvokerMap) {
         if (newUrlInvokerMap == null || newUrlInvokerMap.size() == 0) {
             destroyAllInvokers();
             return;
@@ -415,7 +489,7 @@ public class ServiceDiscoveryRegistryDirectory<T> extends DynamicDirectory<T> {
     private ServiceDiscoveryRegistry getServiceDiscoveryRegistry() {
         ServiceDiscoveryRegistry serviceDiscoveryRegistry;
         if (registry instanceof ListenerRegistryWrapper) {
-            serviceDiscoveryRegistry = (ServiceDiscoveryRegistry)((ListenerRegistryWrapper)registry).getRegistry();
+            serviceDiscoveryRegistry = (ServiceDiscoveryRegistry) ((ListenerRegistryWrapper) registry).getRegistry();
         } else {
             serviceDiscoveryRegistry = (ServiceDiscoveryRegistry) registry;
         }
@@ -521,7 +595,7 @@ public class ServiceDiscoveryRegistryDirectory<T> extends DynamicDirectory<T> {
         }
 
         synchronized boolean hasListeners() {
-           return this.listeners.size() > 0;
+            return this.listeners.size() > 0;
         }
 
         @Override

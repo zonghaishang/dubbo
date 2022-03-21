@@ -340,4 +340,7 @@ public class OverrideInstanceAddressURL extends InstanceAddressURL {
         return originUrl.toString() + ", overrideParams: " + overrideParams.toString();
     }
 
+    public InstanceAddressURL getOriginUrl() {
+        return originUrl;
+    }
 }
