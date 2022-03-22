@@ -70,8 +70,8 @@ public class ProviderAppOverrideConfigurator extends AbstractConfigurator {
 
         String currentSide = url.getParameter(SIDE_KEY);
         String configuratorSide = configuratorUrl.getParameter(SIDE_KEY);
-        if (currentSide.equals(configuratorSide) && CONSUMER.equals(configuratorSide) && url.getPort() == configuratorUrl.getPort()) {
-            url = configureIfMatch(url.getHost(), url);
+        if (currentSide.equals(configuratorSide) && CONSUMER.equals(configuratorSide) && 0 == configuratorUrl.getPort()) {
+            url = configureIfMatch(NetUtils.getLocalHost(), url);
         }
 
         return url;
