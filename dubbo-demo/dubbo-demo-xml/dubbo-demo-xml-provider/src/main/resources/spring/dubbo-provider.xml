@@ -29,6 +29,8 @@
     <dubbo:parameter key="child.zk1" value="zookeeper://127.0.0.1:2181"/>
   </dubbo:registry>
 
+<!--  <dubbo:registry protocol="zookeeper" address="zookeeper://127.0.0.1:2181" />-->
+
   <dubbo:config-center address="zookeeper://127.0.0.1:2181"/>
   <dubbo:metadata-report address="zookeeper://127.0.0.1:2181"/>
 

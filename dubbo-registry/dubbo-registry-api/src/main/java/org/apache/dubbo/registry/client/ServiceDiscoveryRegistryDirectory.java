@@ -238,6 +238,8 @@ public class ServiceDiscoveryRegistryDirectory<T> extends DynamicDirectory<T> {
             return;
         }
 
+        logger.warn("Received new url address: " + newUrlInvokerMap.keySet());
+
         List<Invoker<T>> newInvokers = Collections.unmodifiableList(new ArrayList<>(newUrlInvokerMap.values()));
         // pre-route and build cache, notice that route cache should build on original Invoker list.
         // toMergeMethodInvokerMap() will wrap some invokers having different groups, those wrapped invokers not

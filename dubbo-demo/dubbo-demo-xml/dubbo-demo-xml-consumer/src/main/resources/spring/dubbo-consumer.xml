@@ -26,6 +26,8 @@
         <dubbo:parameter key="enable-auto-migration" value="true"/>
     </dubbo:application>
 
+<!--    <dubbo:registry protocol="zookeeper" address="zookeeper://127.0.0.1:2181" />-->
+
     <dubbo:registry id="multipleRegistry" protocol="multiple" address="multiple://0.0.0.0?registry-type=service">
         <dubbo:parameter key="child.zk1" value="zookeeper://127.0.0.1:2181"/>
     </dubbo:registry>

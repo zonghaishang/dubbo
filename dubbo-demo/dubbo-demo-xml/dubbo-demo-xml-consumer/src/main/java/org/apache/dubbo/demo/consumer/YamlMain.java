@@ -19,6 +19,7 @@ public class YamlMain {
         generateAppLevelDisableProvider(true); // disable provider
 
 //        generateConsumerAppLevelTimeout(1000);
+//        generateServiceLevelConsumerOverride(2000);
 
 //        generateServiceLevelApplyNonAppConsumerOverride(500); // 接口级服务，指定客户端app生效
 //        generateAppLevelConsumerWithInterfaceOverride(300); // 应用级服务，指定接口生效
@@ -190,7 +191,8 @@ public class YamlMain {
                 "key: demo-provider\n" +
                 "enabled: true\n" +
                 "configs:\n" +
-                "- addresses: [\"30.230.19.216:20880\"]\n" +
+                "- addresses: [\"0.0.0.0\"]\n" +
+                "  providerAddresses: [\"30.230.19.216:20880\"]\n" +
                 "  side: consumer\n" +
                 "  parameters:\n" +
                 "    disabled: " + disable;
@@ -221,7 +223,7 @@ public class YamlMain {
                 "- addresses: [\"0.0.0.0\"]\n" +
                 "  side: consumer\n" +
                 "  parameters:\n" +
-                "    enabled: " + true;
+                "    timeout: " + timeout;
 
         System.out.println(str);
 
